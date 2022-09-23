@@ -1,0 +1,7 @@
+﻿  imgui.cpp
+  imgui_demo.cpp
+  imgui_draw.cpp
+  imgui_tables.cpp
+  imgui_widgets.cpp
+  Generating Code...
+  ImGui.vcxproj -> E:\dev\projects\cpp\triangle-strategy\vendor\imgui\bin\Production\ImGui.lib

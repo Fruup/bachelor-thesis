@@ -1,0 +1,217 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug Win64|x64">
+      <Configuration>Debug Win64</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release Win64|x64">
+      <Configuration>Release Win64</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Production Win64|x64">
+      <Configuration>Production Win64</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{AC7FB1FD-9821-DCD3-81DC-EF276D1D6324}</ProjectGuid>
+    <IgnoreWarnCompileDuplicatedFilename>true</IgnoreWarnCompileDuplicatedFilename>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>fluids</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Win64|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Win64|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Production Win64|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <CharacterSet>Unicode</CharacterSet>
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug Win64|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release Win64|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Production Win64|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug Win64|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>build\Debug\fluids\</OutDir>
+    <IntDir>build\obj\fluids\Win64\Debug\</IntDir>
+    <TargetName>fluids</TargetName>
+    <TargetExt>.exe</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release Win64|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>build\Release\fluids\</OutDir>
+    <IntDir>build\obj\fluids\Win64\Release\</IntDir>
+    <TargetName>fluids</TargetName>
+    <TargetExt>.exe</TargetExt>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Production Win64|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>build\Production\fluids\</OutDir>
+    <IntDir>build\obj\fluids\Win64\Production\</IntDir>
+    <TargetName>fluids</TargetName>
+    <TargetExt>.exe</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug Win64|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>engine/hzpch.h</PrecompiledHeaderFile>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>DEBUG;SOLUTION_DIRECTORY=".";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\include;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <Optimization>Disabled</Optimization>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>E:\dev\VulkanSDK\1.3.224.1\Lib\glslangd.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shadercd.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_utild.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_combinedd.lib;vendor\glfw\glfw3.lib;vendor\yaml-cpp\lib\Debug\yaml-cpp.lib;vendor\imgui\bin\Debug\ImGui.lib;vendor\partio\lib\Debug\partio.lib;vendor\zlib\lib\Debug\zlib.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release Win64|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>engine/hzpch.h</PrecompiledHeaderFile>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>NDEBUG;RELEASE;SOLUTION_DIRECTORY=".";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\include;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <MinimalRebuild>false</MinimalRebuild>
+      <StringPooling>true</StringPooling>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>glslang.lib;shaderc.lib;shaderc_util.lib;shaderc_combined.lib;vendor\glfw\glfw3.lib;vendor\yaml-cpp\lib\Release\yaml-cpp.lib;vendor\imgui\bin\Release\ImGui.lib;vendor\partio\lib\Release\partio.lib;vendor\zlib\lib\Release\zlib.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Production Win64|x64'">
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>engine/hzpch.h</PrecompiledHeaderFile>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>NDEBUG;PRODUCTION;SOLUTION_DIRECTORY=".";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\include;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <Optimization>Full</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <MinimalRebuild>false</MinimalRebuild>
+      <StringPooling>true</StringPooling>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>glslang.lib;shaderc.lib;shaderc_util.lib;shaderc_combined.lib;vendor\glfw\glfw3.lib;vendor\yaml-cpp\lib\Production\yaml-cpp.lib;vendor\imgui\bin\Production\ImGui.lib;vendor\partio\lib\Production\partio.lib;vendor\zlib\lib\Production\zlib.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="src\app\Dataset.h" />
+    <ClInclude Include="src\app\renderer\AdvancedFluidRenderer.h" />
+    <ClInclude Include="src\app\renderer\FluidRenderer.h" />
+    <ClInclude Include="src\app\renderer\PointFluidRenderer.h" />
+    <ClInclude Include="src\engine\Application.h" />
+    <ClInclude Include="src\engine\Engine.h" />
+    <ClInclude Include="src\engine\assets\AssetHandle.h" />
+    <ClInclude Include="src\engine\assets\AssetManager.h" />
+    <ClInclude Include="src\engine\assets\AssetPath.h" />
+    <ClInclude Include="src\engine\assets\Sprite.h" />
+    <ClInclude Include="src\engine\camera\Camera2D.h" />
+    <ClInclude Include="src\engine\camera\EditorCameraController.h" />
+    <ClInclude Include="src\engine\camera\EditorCameraController3D.h" />
+    <ClInclude Include="src\engine\camera\GameCameraController.h" />
+    <ClInclude Include="src\engine\camera\ViewRect.h" />
+    <ClInclude Include="src\engine\events\Event.h" />
+    <ClInclude Include="src\engine\events\EventManager.h" />
+    <ClInclude Include="src\engine\events\Keyboard.h" />
+    <ClInclude Include="src\engine\events\Layer.h" />
+    <ClInclude Include="src\engine\events\Mouse.h" />
+    <ClInclude Include="src\engine\hzpch.h" />
+    <ClInclude Include="src\engine\input\Input.h" />
+    <ClInclude Include="src\engine\math\Basic.h" />
+    <ClInclude Include="src\engine\math\Polygon.h" />
+    <ClInclude Include="src\engine\renderer\Renderer.h" />
+    <ClInclude Include="src\engine\renderer\objects\Buffer.h" />
+    <ClInclude Include="src\engine\renderer\objects\Command.h" />
+    <ClInclude Include="src\engine\renderer\objects\DepthBuffer.h" />
+    <ClInclude Include="src\engine\renderer\objects\Image.h" />
+    <ClInclude Include="src\engine\renderer\objects\Pipeline.h" />
+    <ClInclude Include="src\engine\renderer\objects\Shader.h" />
+    <ClInclude Include="src\engine\renderer\objects\VertexBuffer.h" />
+    <ClInclude Include="src\engine\ui\ImGuiLayer.h" />
+    <ClInclude Include="src\engine\utils\CursorPosition.h" />
+    <ClInclude Include="src\engine\utils\ImageCPU.h" />
+    <ClInclude Include="src\engine\utils\PerformanceTimer.h" />
+    <ClInclude Include="src\engine\utils\Statistics.h" />
+    <ClInclude Include="src\engine\utils\Utils.h" />
+    <ClInclude Include="src\engine\utils\YamlConverters.h" />
+    <ClInclude Include="vendor\imgui\backends\imgui_impl_glfw.h" />
+    <ClInclude Include="vendor\imgui\backends\imgui_impl_vulkan.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\app\renderer\PointFluidRenderer.cpp" />
+    <ClCompile Include="src\engine\Application.cpp" />
+    <ClCompile Include="src\engine\assets\AssetHandle.cpp" />
+    <ClCompile Include="src\engine\assets\AssetManager.cpp" />
+    <ClCompile Include="src\engine\assets\AssetPath.cpp" />
+    <ClCompile Include="src\engine\camera\Camera2D.cpp" />
+    <ClCompile Include="src\engine\camera\EditorCameraController.cpp" />
+    <ClCompile Include="src\engine\camera\EditorCameraController3D.cpp" />
+    <ClCompile Include="src\engine\camera\GameCameraController.cpp" />
+    <ClCompile Include="src\engine\events\EventManager.cpp" />
+    <ClCompile Include="src\engine\events\Layer.cpp" />
+    <ClCompile Include="src\engine\hzpch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="src\engine\input\Input.cpp" />
+    <ClCompile Include="src\engine\math\Basic.cpp" />
+    <ClCompile Include="src\engine\math\Polygon.cpp" />
+    <ClCompile Include="src\engine\renderer\Renderer.cpp" />
+    <ClCompile Include="src\engine\renderer\RendererInit.cpp" />
+    <ClCompile Include="src\engine\renderer\RendererInit2.cpp" />
+    <ClCompile Include="src\engine\renderer\objects\Buffer.cpp" />
+    <ClCompile Include="src\engine\renderer\objects\Command.cpp" />
+    <ClCompile Include="src\engine\renderer\objects\DepthBuffer.cpp" />
+    <ClCompile Include="src\engine\renderer\objects\Image.cpp" />
+    <ClCompile Include="src\engine\renderer\objects\Pipeline.cpp" />
+    <ClCompile Include="src\engine\renderer\objects\Shader.cpp" />
+    <ClCompile Include="src\engine\renderer\objects\VertexBuffer.cpp" />
+    <ClCompile Include="src\engine\ui\ImGuiLayer.cpp" />
+    <ClCompile Include="src\engine\utils\ImageCPU.cpp" />
+    <ClCompile Include="src\engine\utils\Statistics.cpp" />
+    <ClCompile Include="src\engine\utils\Utils.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="vendor\imgui\backends\imgui_impl_glfw.cpp" />
+    <ClCompile Include="vendor\imgui\backends\imgui_impl_vulkan.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

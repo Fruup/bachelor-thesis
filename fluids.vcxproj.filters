@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{2DAB880B-99B4-887C-2230-9F7C8E38947C}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\app">
+      <UniqueIdentifier>{FDEA2FA9-69CA-AE44-72E2-391BDE4015A6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\app\renderer">
+      <UniqueIdentifier>{6377EE13-4F70-0D66-78A2-F2EA64FAEC71}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\engine">
+      <UniqueIdentifier>{32B5D758-1E6D-19A6-8774-F201734BB496}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\engine\assets">
+      <UniqueIdentifier>{F403EDDD-601A-EB73-A991-769515E7BBFB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\engine\camera">
+      <UniqueIdentifier>{8A514EE1-F667-4C77-3FDF-D798AB341DFF}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\engine\events">
+      <UniqueIdentifier>{F66870E7-627F-6E7D-ABF6-F99E174C3F05}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\engine\input">
+      <UniqueIdentifier>{D11238C9-BD0B-571B-E63D-3CA0D2953627}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\engine\math">
+      <UniqueIdentifier>{6BB52225-D740-90E9-E051-13DE4C5CECE9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\engine\renderer">
+      <UniqueIdentifier>{388D297C-A4EE-068A-2D5C-4D3C99BC3D49}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\engine\renderer\objects">
+      <UniqueIdentifier>{117C8647-7D89-B42D-0670-B018727C80E4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\engine\ui">
+      <UniqueIdentifier>{5FD7D3A0-CB97-4FD7-94D2-9854005294B3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\engine\utils">
+      <UniqueIdentifier>{326414CA-1E5D-331C-478F-18A133E71228}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vendor">
+      <UniqueIdentifier>{B3738122-9F15-ACF8-88D0-BF4C74113349}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vendor\imgui">
+      <UniqueIdentifier>{5D3BD0F0-499E-5F95-F223-984BDE652B18}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="vendor\imgui\backends">
+      <UniqueIdentifier>{27CEAEAF-933A-6AAA-5C2E-0208C8598C12}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\app\Dataset.h">
+      <Filter>src\app</Filter>
+    </ClInclude>
+    <ClInclude Include="src\app\renderer\AdvancedFluidRenderer.h">
+      <Filter>src\app\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\app\renderer\FluidRenderer.h">
+      <Filter>src\app\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\app\renderer\PointFluidRenderer.h">
+      <Filter>src\app\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\Application.h">
+      <Filter>src\engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\Engine.h">
+      <Filter>src\engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\assets\AssetHandle.h">
+      <Filter>src\engine\assets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\assets\AssetManager.h">
+      <Filter>src\engine\assets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\assets\AssetPath.h">
+      <Filter>src\engine\assets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\assets\Sprite.h">
+      <Filter>src\engine\assets</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\camera\Camera2D.h">
+      <Filter>src\engine\camera</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\camera\EditorCameraController.h">
+      <Filter>src\engine\camera</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\camera\EditorCameraController3D.h">
+      <Filter>src\engine\camera</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\camera\GameCameraController.h">
+      <Filter>src\engine\camera</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\camera\ViewRect.h">
+      <Filter>src\engine\camera</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\events\Event.h">
+      <Filter>src\engine\events</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\events\EventManager.h">
+      <Filter>src\engine\events</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\events\Keyboard.h">
+      <Filter>src\engine\events</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\events\Layer.h">
+      <Filter>src\engine\events</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\events\Mouse.h">
+      <Filter>src\engine\events</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\hzpch.h">
+      <Filter>src\engine</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\input\Input.h">
+      <Filter>src\engine\input</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\math\Basic.h">
+      <Filter>src\engine\math</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\math\Polygon.h">
+      <Filter>src\engine\math</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\renderer\Renderer.h">
+      <Filter>src\engine\renderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\renderer\objects\Buffer.h">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\renderer\objects\Command.h">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\renderer\objects\DepthBuffer.h">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\renderer\objects\Image.h">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\renderer\objects\Pipeline.h">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\renderer\objects\Shader.h">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\renderer\objects\VertexBuffer.h">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\ui\ImGuiLayer.h">
+      <Filter>src\engine\ui</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\utils\CursorPosition.h">
+      <Filter>src\engine\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\utils\ImageCPU.h">
+      <Filter>src\engine\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\utils\PerformanceTimer.h">
+      <Filter>src\engine\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\utils\Statistics.h">
+      <Filter>src\engine\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\utils\Utils.h">
+      <Filter>src\engine\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\utils\YamlConverters.h">
+      <Filter>src\engine\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\imgui\backends\imgui_impl_glfw.h">
+      <Filter>vendor\imgui\backends</Filter>
+    </ClInclude>
+    <ClInclude Include="vendor\imgui\backends\imgui_impl_vulkan.h">
+      <Filter>vendor\imgui\backends</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\app\renderer\PointFluidRenderer.cpp">
+      <Filter>src\app\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\Application.cpp">
+      <Filter>src\engine</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\assets\AssetHandle.cpp">
+      <Filter>src\engine\assets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\assets\AssetManager.cpp">
+      <Filter>src\engine\assets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\assets\AssetPath.cpp">
+      <Filter>src\engine\assets</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\camera\Camera2D.cpp">
+      <Filter>src\engine\camera</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\camera\EditorCameraController.cpp">
+      <Filter>src\engine\camera</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\camera\EditorCameraController3D.cpp">
+      <Filter>src\engine\camera</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\camera\GameCameraController.cpp">
+      <Filter>src\engine\camera</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\events\EventManager.cpp">
+      <Filter>src\engine\events</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\events\Layer.cpp">
+      <Filter>src\engine\events</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\hzpch.cpp">
+      <Filter>src\engine</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\input\Input.cpp">
+      <Filter>src\engine\input</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\math\Basic.cpp">
+      <Filter>src\engine\math</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\math\Polygon.cpp">
+      <Filter>src\engine\math</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\renderer\Renderer.cpp">
+      <Filter>src\engine\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\renderer\RendererInit.cpp">
+      <Filter>src\engine\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\renderer\RendererInit2.cpp">
+      <Filter>src\engine\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\renderer\objects\Buffer.cpp">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\renderer\objects\Command.cpp">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\renderer\objects\DepthBuffer.cpp">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\renderer\objects\Image.cpp">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\renderer\objects\Pipeline.cpp">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\renderer\objects\Shader.cpp">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\renderer\objects\VertexBuffer.cpp">
+      <Filter>src\engine\renderer\objects</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\ui\ImGuiLayer.cpp">
+      <Filter>src\engine\ui</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\utils\ImageCPU.cpp">
+      <Filter>src\engine\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\utils\Statistics.cpp">
+      <Filter>src\engine\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\utils\Utils.cpp">
+      <Filter>src\engine\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui\backends\imgui_impl_glfw.cpp">
+      <Filter>vendor\imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui\backends\imgui_impl_vulkan.cpp">
+      <Filter>vendor\imgui\backends</Filter>
+    </ClCompile>
+  </ItemGroup>
+</Project>
