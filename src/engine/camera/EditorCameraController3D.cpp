@@ -13,7 +13,7 @@ Camera3D::Camera3D(float fov, float aspect, float near, float far) :
 	Far(far),
 	Aspect(aspect)
 {
-	Projection = glm::perspectiveLH(-fov, aspect, near, far);
+	Projection = glm::perspectiveLH(fov, aspect, near, far);
 }
 
 void Camera3D::ComputeMatrices()
@@ -25,7 +25,7 @@ void Camera3D::ComputeMatrices()
 EditorCameraController3D::EditorCameraController3D(Camera3D& camera) :
 	Camera(camera),
 	Position(glm::vec3()),
-	Orientation(glm::quatLookAt(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0)))
+	Orientation(glm::quatLookAtLH(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0)))
 {
 	ComputeMatrices();
 }
@@ -53,7 +53,7 @@ void EditorCameraController3D::HandleEvent(Event& e)
 	});
 
 	d.Dispatch<Events::MouseWheel>([&](const Events::MouseWheel& e) {
-		Position -= 0.25f * e.Wheel * System[2];
+		Position += 0.2f * e.Wheel * System[2];
 	});
 
 	d.Dispatch<Events::MouseMove>([&](const Events::MouseMove& e) {
@@ -69,7 +69,7 @@ void EditorCameraController3D::HandleEvent(Event& e)
 			// onto the camera plane
 			float v = 0.01f;
 
-			Position += v * e.Delta.x * System[0] + v * e.Delta.y * System[1];
+			Position -= v * e.Delta.x * System[0] - v * e.Delta.y * System[1];
 		}
 	});
 
@@ -92,10 +92,10 @@ void EditorCameraController3D::SetOrientation(const glm::quat& orientation)
 
 void EditorCameraController3D::ComputeMatrices()
 {
-	auto orientation = glm::toMat4(Orientation);
+	glm::mat4 orientation = glm::toMat4(Orientation);
 
 	System = orientation;
-	Camera.View = glm::translate(orientation, Position);
+	Camera.View = glm::translate(glm::scale(orientation, glm::vec3(1, -1, 1)), -Position);
 
 	Camera.ComputeMatrices();
 }

@@ -8,8 +8,10 @@
 
 #include "app/renderer/AdvancedFluidRenderer.h"
 #include "app/renderer/PointFluidRenderer.h"
+#include "app/renderer/DepthFluidRenderer.h"
 
-static std::unique_ptr<PointFluidRenderer> g_FluidRenderer(new PointFluidRenderer);
+//static std::unique_ptr<PointFluidRenderer> g_FluidRenderer(new PointFluidRenderer);
+static std::unique_ptr<DepthFluidRenderer> g_FluidRenderer(new DepthFluidRenderer);
 
 Renderer& Renderer::GetInstance()
 {

@@ -71,31 +71,16 @@ private:
 		// file->sort();
 
 		file->attributeInfo("position", attrPosition);
-		//file->attributeInfo("velocity", attrVelocity);
 
 		Snapshot snapshot;
 		snapshot.reserve(file->numParticles());
 
 		for (int i = 0; i < file->numParticles(); i++)
 		{
-			// compute density
 			const float* position = file->data<float>(attrPosition, i);
-			//const float* velocity = file->data<float>(attrPosition, i);
+			glm::vec3 v(position[0], position[1], position[2]);
 
-			/*std::vector<Partio::ParticleIndex> points;
-			std::vector<float> squaredDistances;
-
-			const int N = 30;
-			const float MAX_RADIUS = 1.0f;
-			auto n = file->findNPoints(position, N, MAX_RADIUS, points, squaredDistances);
-
-			float density = float(n) / float(N);*/
-
-			snapshot.push_back(Particle{
-				.Position = glm::vec3(position[0], position[1], position[2]),
-				//.Velocity = glm::vec3(velocity[0], velocity[1], velocity[2]),
-				//.Density = density,
-			});
+			snapshot.push_back(Particle{ v });
 		}
 
 		Snapshots.push_back(snapshot);

@@ -41,7 +41,7 @@ namespace Events
 
 		MouseMove(const CursorPosition& cursorPosition, const CursorPosition& prevCursorPosition) :
 			Event(StaticType),
-			Delta(prevCursorPosition - cursorPosition),
+			Delta(cursorPosition - prevCursorPosition),
 			CursorPosition(cursorPosition),
 			PrevCursorPosition(prevCursorPosition)
 		{

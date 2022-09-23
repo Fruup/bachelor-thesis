@@ -134,6 +134,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\app\Dataset.h" />
+    <ClInclude Include="src\app\renderer\DepthFluidRenderer.h" />
     <ClInclude Include="src\app\renderer\PointFluidRenderer.h" />
     <ClInclude Include="src\app\renderer\_AdvancedFluidRenderer.h" />
     <ClInclude Include="src\app\renderer\FluidRenderer.h" />
@@ -178,6 +179,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\app\renderer\AdvancedFluidRenderer.cpp" />
+    <ClCompile Include="src\app\renderer\DepthFluidRenderer.cpp" />
     <ClCompile Include="src\app\renderer\PointFluidRenderer.cpp" />
     <ClCompile Include="src\engine\Application.cpp" />
     <ClCompile Include="src\engine\assets\AssetHandle.cpp" />

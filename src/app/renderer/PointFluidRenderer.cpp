@@ -51,10 +51,10 @@ bool PointFluidRenderer::VInit()
 		100.0f
 	);
 
-	CameraController.SetPosition({ 0, -3, -10 });
+	CameraController.SetPosition({ 0, 3, -10 });
 	CameraController.SetOrientation(glm::quatLookAt(glm::normalize(-CameraController.Position), { 0, 1, 0 }));
 
-	Camera.ComputeMatrices();
+	CameraController.ComputeMatrices();
 
 	return true;
 }
@@ -318,8 +318,6 @@ bool PointFluidRenderer::CreateDescriptorSet()
 
 void PointFluidRenderer::UpdateUniforms()
 {
-	Camera.ComputeMatrices();
-
 	Uniforms.Projection = Camera.GetProjection();
 	Uniforms.View = Camera.GetView();
 	Uniforms.Radius = SPHERE_RADIUS;

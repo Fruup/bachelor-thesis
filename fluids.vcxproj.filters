@@ -177,6 +177,9 @@
     <ClInclude Include="src\app\renderer\PointFluidRenderer.h">
       <Filter>src\app\renderer</Filter>
     </ClInclude>
+    <ClInclude Include="src\app\renderer\DepthFluidRenderer.h">
+      <Filter>src\app\renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\app\renderer\AdvancedFluidRenderer.cpp">
@@ -276,6 +279,9 @@
       <Filter>vendor\imgui\backends</Filter>
     </ClCompile>
     <ClCompile Include="src\app\renderer\PointFluidRenderer.cpp">
+      <Filter>src\app\renderer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\app\renderer\DepthFluidRenderer.cpp">
       <Filter>src\app\renderer</Filter>
     </ClCompile>
   </ItemGroup>
