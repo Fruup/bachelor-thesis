@@ -2,13 +2,19 @@
 
 #include <engine/Application.h>
 #include <engine/events/EventManager.h>
+#include <engine/renderer/Renderer.h>
 
 #include "app/Dataset.h"
 
 #include "app/renderer/AdvancedFluidRenderer.h"
 #include "app/renderer/PointFluidRenderer.h"
 
-std::unique_ptr<FluidRenderer> g_FluidRenderer(new PointFluidRenderer);
+static std::unique_ptr<PointFluidRenderer> g_FluidRenderer(new PointFluidRenderer);
+
+Renderer& Renderer::GetInstance()
+{
+	return *g_FluidRenderer;
+}
 
 class App : public Application
 {
@@ -35,8 +41,7 @@ public:
 			return false;
 
 		// init fluid renderer
-		if (!g_FluidRenderer->Init(dataset))
-			return false;
+		g_FluidRenderer->SetDataset(dataset);
 
 		// add application layer
 		EventManager::LayerStack.AddLayer(new AppLayer);
@@ -46,19 +51,14 @@ public:
 
 	void OnExit()
 	{
-		g_FluidRenderer->Exit();
-
-		g_FluidRenderer.reset();
 	}
 
 	void OnUpdate(float time)
 	{
-		g_FluidRenderer->Update(time);
 	}
 
 	void OnRender(float time)
 	{
-		g_FluidRenderer->RenderFrame();
 	}
 
 	class AppLayer : public Layer
@@ -79,4 +79,6 @@ int main()
 	app.Init();
 	app.Run();
 	app.Exit();
+
+	g_FluidRenderer.reset();
 }

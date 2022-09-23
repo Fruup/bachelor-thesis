@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 #define PI_OVER_TWO (1.57079632679)
 
@@ -35,6 +35,7 @@ void main()
 	float zScreen = pScreen.z;
 
 	gl_FragDepth = zScreen;
+
 	FragColor = vec4(vec3(zScreen), 1);
-	//FragColor = vec4(vec3(sphericalOffset), 1);
+	// FragColor = vec4(vec3(sphericalOffset), 1);
 }

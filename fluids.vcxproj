@@ -134,9 +134,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\app\Dataset.h" />
-    <ClInclude Include="src\app\renderer\AdvancedFluidRenderer.h" />
-    <ClInclude Include="src\app\renderer\FluidRenderer.h" />
     <ClInclude Include="src\app\renderer\PointFluidRenderer.h" />
+    <ClInclude Include="src\app\renderer\_AdvancedFluidRenderer.h" />
+    <ClInclude Include="src\app\renderer\FluidRenderer.h" />
+    <ClInclude Include="src\app\renderer\AdvancedFluidRenderer.h" />
     <ClInclude Include="src\engine\Application.h" />
     <ClInclude Include="src\engine\Engine.h" />
     <ClInclude Include="src\engine\assets\AssetHandle.h" />
@@ -176,6 +177,7 @@
     <ClInclude Include="vendor\imgui\backends\imgui_impl_vulkan.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\app\renderer\AdvancedFluidRenderer.cpp" />
     <ClCompile Include="src\app\renderer\PointFluidRenderer.cpp" />
     <ClCompile Include="src\engine\Application.cpp" />
     <ClCompile Include="src\engine\assets\AssetHandle.cpp" />

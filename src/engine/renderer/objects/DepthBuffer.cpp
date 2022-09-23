@@ -7,9 +7,12 @@ bool DepthBuffer::Create()
 	// image
 	{
 		vk::ImageCreateInfo info;
-		info.setExtent({ Renderer::GetSwapchainExtent().width, Renderer::GetSwapchainExtent().height, 1 })
+		info.setExtent({
+				Renderer::GetInstance().GetSwapchainExtent().width,
+				Renderer::GetInstance().GetSwapchainExtent().height,
+				1 })
 			.setFormat(vk::Format::eD32Sfloat)
-			.setQueueFamilyIndices(Renderer::Data.QueueIndices.GraphicsFamily.value())
+			.setQueueFamilyIndices(Renderer::GetInstance().QueueIndices.GraphicsFamily.value())
 			.setImageType(vk::ImageType::e2D)
 			.setInitialLayout(vk::ImageLayout::eUndefined)
 			.setMipLevels(1)
@@ -23,7 +26,7 @@ bool DepthBuffer::Create()
 			.setSharingMode(vk::SharingMode::eExclusive)
 			.setSamples(vk::SampleCountFlagBits::e1);
 
-		m_Image = Renderer::Data.Device.createImage(info);
+		m_Image = Renderer::GetInstance().Device.createImage(info);
 		if (!m_Image)
 		{
 			SPDLOG_ERROR("Depth buffer image creation failed!");
@@ -33,21 +36,21 @@ bool DepthBuffer::Create()
 
 	// memory
 	{
-		auto requirements = Renderer::Data.Device.getImageMemoryRequirements(m_Image);
+		auto requirements = Renderer::GetInstance().Device.getImageMemoryRequirements(m_Image);
 
 		vk::MemoryAllocateInfo allocInfo{
 			requirements.size,
 			Renderer::FindMemoryType(requirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal)
 		};
 
-		m_Memory = Renderer::Data.Device.allocateMemory(allocInfo);
+		m_Memory = Renderer::GetInstance().Device.allocateMemory(allocInfo);
 		if (!m_Memory)
 		{
 			SPDLOG_ERROR("Depth buffer memory creation failed!");
 			return false;
 		}
 
-		Renderer::Data.Device.bindImageMemory(m_Image, m_Memory, 0);
+		Renderer::GetInstance().Device.bindImageMemory(m_Image, m_Memory, 0);
 	}
 
 	// create image view
@@ -64,7 +67,7 @@ bool DepthBuffer::Create()
 				0, 1, 0, 1
 			});
 
-		m_View = Renderer::Data.Device.createImageView(viewInfo);
+		m_View = Renderer::GetInstance().Device.createImageView(viewInfo);
 		if (!m_View)
 		{
 			SPDLOG_ERROR("Depth buffer view creation failed!");
@@ -79,19 +82,19 @@ void DepthBuffer::Destroy()
 {
 	if (m_Image)
 	{
-		Renderer::Data.Device.destroyImage(m_Image);
+		Renderer::GetInstance().Device.destroyImage(m_Image);
 		m_Image = nullptr;
 	}
 
 	if (m_View)
 	{
-		Renderer::Data.Device.destroyImageView(m_View);
+		Renderer::GetInstance().Device.destroyImageView(m_View);
 		m_View = nullptr;
 	}
 
 	if (m_Memory)
 	{
-		Renderer::Data.Device.freeMemory(m_Memory);
+		Renderer::GetInstance().Device.freeMemory(m_Memory);
 		m_Memory = nullptr;
 	}
 }

@@ -80,7 +80,7 @@ bool Image::Create(vk::Extent2D dim, uint32_t numChannels, vk::Format format, vk
 	vk::ImageCreateInfo info;
 	info.setExtent({ Dimensions.width, Dimensions.height, 1 })
 		.setFormat(format)
-		.setQueueFamilyIndices(Renderer::Data.QueueIndices.GraphicsFamily.value())
+		.setQueueFamilyIndices(Renderer::GetInstance().QueueIndices.GraphicsFamily.value())
 		.setImageType(vk::ImageType::e2D)
 		.setInitialLayout(Layout)
 		.setMipLevels(1)
@@ -90,7 +90,7 @@ bool Image::Create(vk::Extent2D dim, uint32_t numChannels, vk::Format format, vk
 		.setSharingMode(vk::SharingMode::eExclusive)
 		.setSamples(vk::SampleCountFlagBits::e1);
 
-	TextureImage = Renderer::Data.Device.createImage(info);
+	TextureImage = Renderer::GetInstance().Device.createImage(info);
 	if (!TextureImage)
 	{
 		SPDLOG_ERROR("Texture image creation failed!");
@@ -98,21 +98,21 @@ bool Image::Create(vk::Extent2D dim, uint32_t numChannels, vk::Format format, vk
 	}
 
 	// memory
-	auto requirements = Renderer::Data.Device.getImageMemoryRequirements(TextureImage);
+	auto requirements = Renderer::GetInstance().Device.getImageMemoryRequirements(TextureImage);
 
 	vk::MemoryAllocateInfo allocInfo{
 		requirements.size,
 		Renderer::FindMemoryType(requirements.memoryTypeBits, properties)
 	};
 	
-	Memory = Renderer::Data.Device.allocateMemory(allocInfo);
+	Memory = Renderer::GetInstance().Device.allocateMemory(allocInfo);
 	if (!Memory)
 	{
 		SPDLOG_ERROR("Texture memory creation failed!");
 		return false;
 	}
 
-	Renderer::Data.Device.bindImageMemory(TextureImage, Memory, 0);
+	Renderer::GetInstance().Device.bindImageMemory(TextureImage, Memory, 0);
 
 	// create image view
 	vk::ComponentMapping mapping{};
@@ -130,7 +130,7 @@ bool Image::Create(vk::Extent2D dim, uint32_t numChannels, vk::Format format, vk
 			1
 		});
 
-	View = Renderer::Data.Device.createImageView(viewInfo);
+	View = Renderer::GetInstance().Device.createImageView(viewInfo);
 	if (!View)
 	{
 		SPDLOG_ERROR("Image view creation failed!");
@@ -142,12 +142,12 @@ bool Image::Create(vk::Extent2D dim, uint32_t numChannels, vk::Format format, vk
 	samplerInfo
 		//.setAnisotropyEnable(false)
 		.setAnisotropyEnable(true)
-		.setMaxAnisotropy(Renderer::Data.PhysicalDevice.getProperties().limits.maxSamplerAnisotropy)
+		.setMaxAnisotropy(Renderer::GetInstance().PhysicalDevice.getProperties().limits.maxSamplerAnisotropy)
 		.setCompareEnable(false)
 		.setMagFilter(Filter)
 		.setMinFilter(Filter);
 
-	Sampler = Renderer::Data.Device.createSampler(samplerInfo);
+	Sampler = Renderer::GetInstance().Device.createSampler(samplerInfo);
 	if (!Sampler)
 	{
 		SPDLOG_ERROR("Image sampler creation failed!");
@@ -255,25 +255,25 @@ void Image::Destroy()
 
 	if (Sampler)
 	{
-		Renderer::Data.Device.destroySampler(Sampler);
+		Renderer::GetInstance().Device.destroySampler(Sampler);
 		Sampler = nullptr;
 	}
 
 	if (TextureImage)
 	{
-		Renderer::Data.Device.destroyImage(TextureImage);
+		Renderer::GetInstance().Device.destroyImage(TextureImage);
 		TextureImage = nullptr;
 	}
 
 	if (Memory)
 	{
-		Renderer::Data.Device.freeMemory(Memory);
+		Renderer::GetInstance().Device.freeMemory(Memory);
 		Memory = nullptr;
 	}
 
 	if (View)
 	{
-		Renderer::Data.Device.destroyImageView(View);
+		Renderer::GetInstance().Device.destroyImageView(View);
 		View = nullptr;
 	}
 }

@@ -37,10 +37,10 @@ void Application::Init()
 		Data.Config.ShowDemoWindow = true;
 	}
 
-	// init subsystems
-	if (!Renderer::Init(Data.Config.Width, Data.Config.Height, Data.Config.Title.c_str()))
+	// init renderer
+	if (!Renderer::GetInstance().Init(Data.Config.Width, Data.Config.Height, Data.Config.Title.c_str()))
 	{
-		SPDLOG_ERROR("Failed to initialize renderer!");
+		SPDLOG_ERROR("Failed to init renderer!");
 		return;
 	}
 
@@ -65,7 +65,7 @@ void Application::Exit()
 {
 	OnExit();
 	AssetManager::Exit();
-	Renderer::Exit();
+	Renderer::GetInstance().Exit();
 	EventManager::Exit();
 }
 
@@ -113,10 +113,8 @@ void Application::RenderImGui()
 
 	ImGui::DockSpace(ImGui::GetID("MyDockSpace"), {}, dockspaceFlags);
 
-	{
-		//if (Data.Config.ShowDemoWindow)
-			ImGui::ShowDemoWindow(&Data.Config.ShowDemoWindow);
-	}
+	if (Data.Config.ShowDemoWindow)
+		ImGui::ShowDemoWindow(&Data.Config.ShowDemoWindow);
 
 	ImGui::End();
 }
@@ -134,17 +132,21 @@ void Application::Run()
 		Input::Update(delta);
 		OnUpdate(delta);
 
-		Renderer::Begin();
+		Renderer::GetInstance().Update(delta);
+
+		Renderer::GetInstance().Begin();
+
+		Renderer::GetInstance().Render();
 
 		RenderImGui();
 		GlobalStatistics.ImGuiRender();
 
 		OnRender(delta);
 
-		Renderer::End();
+		Renderer::GetInstance().End();
 
 		// close window requested?
-		if (glfwWindowShouldClose(Renderer::GetWindow()))
+		if (glfwWindowShouldClose(Renderer::GetInstance().GetWindow()))
 			Data.Running = false;
 	}
 }

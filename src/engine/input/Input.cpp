@@ -103,10 +103,10 @@ void MouseMoveCallback(GLFWwindow* window, double xpos, double ypos)
 
 void Input::Init()
 {
-	auto window = Renderer::GetWindow();
+	auto window = Renderer::GetInstance().GetWindow();
 
 	// get initial cursor position
-	glfwGetCursorPos(Renderer::GetWindow(), &Data.CursorPosition.x, &Data.CursorPosition.y);
+	glfwGetCursorPos(Renderer::GetInstance().GetWindow(), &Data.CursorPosition.x, &Data.CursorPosition.y);
 
 	// set glfw callbacks
 	glfwSetInputMode(window, GLFW_STICKY_MOUSE_BUTTONS, GLFW_TRUE);

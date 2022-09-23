@@ -4,8 +4,6 @@
 
 #include <fstream>
 
-RendererData Renderer::Data;
-
 void GlfwErrorCallback(int error_code, const char* description)
 {
 	SPDLOG_ERROR("GLFW ERROR {}: {}", error_code, description);
@@ -24,7 +22,7 @@ bool InitImGui()
 	vk::DescriptorPoolCreateInfo info;
 	info.setPoolSizes(poolSize).setMaxSets(1);
 
-	ImGuiDescriptorPool = Renderer::Data.Device.createDescriptorPool(info);
+	ImGuiDescriptorPool = Renderer::GetInstance().Device.createDescriptorPool(info);
 	if (!ImGuiDescriptorPool)
 	{
 		SPDLOG_ERROR("ImGui descriptor pool creation failed!");
@@ -41,26 +39,26 @@ bool InitImGui()
 	ImGui::StyleColorsDark();
 
 	// glfw
-	ImGui_ImplGlfw_InitForVulkan(Renderer::GetWindow(), false);
+	ImGui_ImplGlfw_InitForVulkan(Renderer::GetInstance().GetWindow(), false);
 
 	// vulkan
 	ImGui_ImplVulkan_InitInfo initInfo{
-		Renderer::Data.Instance,
-		Renderer::Data.PhysicalDevice,
-		Renderer::Data.Device,
-		Renderer::Data.QueueIndices.GraphicsFamily.value(),
-		Renderer::Data.GraphicsQueue,
+		Renderer::GetInstance().Instance,
+		Renderer::GetInstance().PhysicalDevice,
+		Renderer::GetInstance().Device,
+		Renderer::GetInstance().QueueIndices.GraphicsFamily.value(),
+		Renderer::GetInstance().GraphicsQueue,
 		nullptr,
 		ImGuiDescriptorPool,
-		/* subpass */ Renderer::Data.ImGuiSubpass,
-		uint32_t(Renderer::Data.SwapchainImages.size()),
-		uint32_t(Renderer::Data.SwapchainImages.size()),
+		/* subpass */ Renderer::GetInstance().ImGuiSubpass,
+		uint32_t(Renderer::GetInstance().SwapchainImages.size()),
+		uint32_t(Renderer::GetInstance().SwapchainImages.size()),
 		VK_SAMPLE_COUNT_1_BIT,
 		nullptr,
 		nullptr
 	};
 
-	if (!ImGui_ImplVulkan_Init(&initInfo, Renderer::Data.RenderPass))
+	if (!ImGui_ImplVulkan_Init(&initInfo, Renderer::GetInstance().RenderPass))
 	{
 		SPDLOG_ERROR("ImGui Vulkan initialization failed!");
 		return false;
@@ -90,14 +88,14 @@ void ExitImGui()
 
 	if (ImGuiDescriptorPool)
 	{
-		Renderer::Data.Device.destroyDescriptorPool(ImGuiDescriptorPool);
+		Renderer::GetInstance().Device.destroyDescriptorPool(ImGuiDescriptorPool);
 		ImGuiDescriptorPool = nullptr;
 	}
 }
 
 bool CenterGlfwWindow()
 {
-	GLFWwindow* window = Renderer::GetWindow();
+	GLFWwindow* window = Renderer::GetInstance().GetWindow();
 
 	int sx = 0, sy = 0;
 	int px = 0, py = 0;
@@ -176,14 +174,14 @@ bool Renderer::Init(int width, int height, const char* title)
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 	glfwSetErrorCallback(GlfwErrorCallback);
 
-	Data.Window = glfwCreateWindow(
+	Window = glfwCreateWindow(
 		width, height, title,
 		nullptr, nullptr
 	);
 
 	CenterGlfwWindow();
 
-	if (!Data.Window)
+	if (!Window)
 	{
 		SPDLOG_ERROR("Failed to create window!");
 		return false;
@@ -195,19 +193,13 @@ bool Renderer::Init(int width, int height, const char* title)
 		return false;
 	}
 
+	if (!VInit())
+		return false;
+
 	if (!InitImGui())
 	{
 		SPDLOG_ERROR("Failed to initialize ImGui!");
 		return false;
-	}
-
-	{
-		Data.DepthImageCPU.Create(
-			4 * GetSwapchainExtent().width * GetSwapchainExtent().height,
-			vk::BufferUsageFlagBits::eTransferDst,
-			vk::MemoryPropertyFlagBits::eHostCoherent |
-			vk::MemoryPropertyFlagBits::eHostVisible
-		);
 	}
 
 	return true;
@@ -215,53 +207,55 @@ bool Renderer::Init(int width, int height, const char* title)
 
 void Renderer::Exit()
 {
-	Data.Device.waitIdle();
+	Device.waitIdle();
+
+	VExit();
 
 	ExitImGui();
 	ExitVulkan();
 
-	if (Data.Window)
-		glfwDestroyWindow(Data.Window);
-	Data.Window = nullptr;
+	if (Window)
+		glfwDestroyWindow(Window);
+	Window = nullptr;
 	glfwTerminate();
 }
 
 void Renderer::Begin()
 {
 	// acquire image from swap chain
-	Data.CurrentImageIndex = Data.Device.acquireNextImageKHR(Data.Swapchain, UINT64_MAX, Data.ImageAvailableSemaphore).value;
+	CurrentImageIndex = Device.acquireNextImageKHR(Swapchain, UINT64_MAX, ImageAvailableSemaphore).value;
 
 	// begin command buffer
 	{
-		Data.CommandBuffer.reset();
+		CommandBuffer.reset();
 
 		vk::CommandBufferBeginInfo info;
-		Data.CommandBuffer.begin(info);
+		CommandBuffer.begin(info);
 	}
 
 	// begin render pass
-	std::array<vk::ClearValue, 4> clearValues = {
+	std::array<vk::ClearValue, 2> clearValues = {
 		// screen
-		vk::ClearColorValue(std::array<float, 4>{ 1, 0, 0, 1 }),
+		vk::ClearColorValue(std::array<float, 4>{ .1f, .1f, .1f, 1 }),
 
 		// depth
 		vk::ClearDepthStencilValue{ 1.0f },
 
 		// positions
-		vk::ClearColorValue(std::array<float, 4>{ 0, 0, 0, 0 }),
+		//vk::ClearColorValue(std::array<float, 4>{ 0, 0, 0, 0 }),
 
 		// normals
-		vk::ClearColorValue(std::array<float, 4>{ 0, 0, 0, 0 }),
+		//vk::ClearColorValue(std::array<float, 4>{ 0, 0, 0, 0 }),
 	};
 
 	vk::RenderPassBeginInfo renderPassInfo;
 	renderPassInfo
 		.setClearValues(clearValues)
-		.setFramebuffer(Data.SwapchainFramebuffers[GetCurrentSwapchainIndex()])
-		.setRenderArea({ { 0, 0 }, Data.SwapchainExtent })
-		.setRenderPass(Data.RenderPass);
+		.setFramebuffer(SwapchainFramebuffers[GetCurrentSwapchainIndex()])
+		.setRenderArea({ { 0, 0 }, SwapchainExtent })
+		.setRenderPass(RenderPass);
 
-	Data.CommandBuffer.beginRenderPass(
+	CommandBuffer.beginRenderPass(
 		renderPassInfo,
 		vk::SubpassContents::eInline
 	);
@@ -276,89 +270,48 @@ void Renderer::Begin()
 
 void Renderer::End()
 {
-	// execute secondary command buffers
-	//Data.CommandBuffer.executeCommands(Data.SecondaryCommandBuffers);
-
 	// end imgui
 	RenderImGui();
 
 	// end render pass and command buffer
-	Data.CommandBuffer.endRenderPass();
+	CommandBuffer.endRenderPass();
 
-
-	{
-		vk::BufferImageCopy region;
-		region
-			.setBufferImageHeight(0)
-			.setBufferRowLength(0)
-			.setImageExtent({ GetSwapchainExtent().width, GetSwapchainExtent().height, 1 })
-			.setImageSubresource(vk::ImageSubresourceLayers(
-				vk::ImageAspectFlagBits::eDepth, 0, 0, 1
-			));
-
-		Data.CommandBuffer.copyImageToBuffer(
-			Data.DepthBuffer.GetImage(),
-			vk::ImageLayout::eTransferSrcOptimal,
-			Data.DepthImageCPU.Buffer,
-			region
-		);
-	}
-
-
-	Data.CommandBuffer.end();
+	CommandBuffer.end();
 
 	// submit
 	{
 		vk::SubmitInfo info;
 		vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
-		info.setWaitSemaphores(Data.ImageAvailableSemaphore)
+		info.setWaitSemaphores(ImageAvailableSemaphore)
 			.setWaitDstStageMask(waitStage)
-			.setCommandBuffers(Data.CommandBuffer)
-			.setSignalSemaphores(Data.RenderFinishedSemaphore);
+			.setCommandBuffers(CommandBuffer)
+			.setSignalSemaphores(RenderFinishedSemaphore);
 
-		Renderer::Data.GraphicsQueue.submit(info);
-		Renderer::Data.GraphicsQueue.waitIdle();
+		Renderer::GetInstance().GraphicsQueue.submit(info);
+		Renderer::GetInstance().GraphicsQueue.waitIdle();
 	}
 
 	// PRESENT!
 	vk::PresentInfoKHR presentInfo;
 	presentInfo
-		.setWaitSemaphores(Data.RenderFinishedSemaphore)
-		.setSwapchains(Data.Swapchain)
-		.setImageIndices(Data.CurrentImageIndex);
+		.setWaitSemaphores(RenderFinishedSemaphore)
+		.setSwapchains(Swapchain)
+		.setImageIndices(CurrentImageIndex);
 
-	if (Data.PresentationQueue.presentKHR(presentInfo) != vk::Result::eSuccess)
+	if (PresentationQueue.presentKHR(presentInfo) != vk::Result::eSuccess)
 		SPDLOG_WARN("Presentation failed!");
 
 	// ...and wait
-	Data.PresentationQueue.waitIdle();
+	PresentationQueue.waitIdle();
 
-	Data.CurrentImageIndex = UINT32_MAX;
+	CurrentImageIndex = UINT32_MAX;
 }
 
 void Renderer::RenderImGui()
 {
 	// next subpass
-	Data.CommandBuffer.nextSubpass(vk::SubpassContents::eInline);
-	//Data.CommandBuffer.reset();
-
-	//{
-	//	vk::CommandBufferInheritanceInfo inheritanceInfo;
-	//	inheritanceInfo
-	//		.setFramebuffer(Renderer::Data.SwapchainFramebuffers[Renderer::GetCurrentSwapchainIndex()])
-	//		.setRenderPass(Renderer::Data.RenderPass)
-	//		.setSubpass(Data.ImGuiSubpass);
-
-	//	vk::CommandBufferBeginInfo info;
-	//	info.setPInheritanceInfo(&inheritanceInfo)
-	//		.setFlags(
-	//			vk::CommandBufferUsageFlagBits::eRenderPassContinue //|
-	//			//vk::CommandBufferUsageFlagBits::eSimultaneousUse
-	//		);
-
-	//	Data.CommandBuffer.begin(info);
-	//}
+	CommandBuffer.nextSubpass(vk::SubpassContents::eInline);
 
 	// collect render data
 	ImGui::Render();
@@ -367,17 +320,17 @@ void Renderer::RenderImGui()
 
 	// render
 	if (!minimized)
-		ImGui_ImplVulkan_RenderDrawData(drawData, Data.CommandBuffer);
+		ImGui_ImplVulkan_RenderDrawData(drawData, CommandBuffer);
 }
 
 vk::CommandBuffer Renderer::CreateSecondaryCommandBuffer()
 {
 	vk::CommandBufferAllocateInfo info;
 	info.setCommandBufferCount(1)
-		.setCommandPool(Data.CommandPool)
+		.setCommandPool(CommandPool)
 		.setLevel(vk::CommandBufferLevel::eSecondary);
 
-	auto buffer = Data.Device.allocateCommandBuffers(info).front();
+	auto buffer = Device.allocateCommandBuffers(info).front();
 
 	if (!buffer)
 	{
@@ -385,7 +338,7 @@ vk::CommandBuffer Renderer::CreateSecondaryCommandBuffer()
 		return {};
 	}
 
-	Data.SecondaryCommandBuffers.push_back(buffer);
+	SecondaryCommandBuffers.push_back(buffer);
 
 	return buffer;
 }

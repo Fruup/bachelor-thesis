@@ -9,6 +9,7 @@
 #include "engine/renderer/objects/Shader.h"
 #include "engine/renderer/objects/Image.h"
 #include "engine/renderer/objects/DepthBuffer.h"
+#include "engine/camera/EditorCameraController3D.h"
 
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
@@ -34,8 +35,66 @@ struct SwapChainSupportDetails
 	std::vector<vk::PresentModeKHR> PresentModes;
 };
 
-struct RendererData
+class Renderer
 {
+public:
+	static Renderer& GetInstance();
+
+	bool Init(int width, int height, const char* title);
+	void Exit();
+
+	virtual bool VInit() { return true; }
+	virtual void VExit() {}
+
+	virtual void Begin();
+	virtual void End();
+
+	virtual void Render() {}
+
+	virtual void Update(float time)
+	{
+		CameraController.Update(time);
+	}
+
+	virtual void HandleEvent(Event& e)
+	{
+		CameraController.HandleEvent(e);
+	}
+
+	static uint32_t FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
+
+	GLFWwindow* GetWindow() { return Window; }
+	uint32_t GetCurrentSwapchainIndex() { return CurrentImageIndex; }
+	vk::Extent2D GetSwapchainExtent() { return SwapchainExtent; }
+
+	vk::CommandBuffer CreateSecondaryCommandBuffer();
+
+private:
+	bool InitVulkan();
+	void ExitVulkan();
+
+	void RenderImGui();
+
+	bool CreateInstance();
+	bool PickPhysicalDevice();
+	bool CreateLogicalDevice();
+	bool CreateSwapChain();
+	bool CreateSwapChainImageViews();
+
+	virtual bool CreateDepthBuffer();
+	virtual bool CreateRenderPass();
+	virtual bool CreateDescriptorPool();
+	virtual bool CreateFramebuffers();
+	virtual bool CreateCommandPool();
+	virtual bool CreateCommandBuffer();
+
+	bool CreateSemaphores();
+
+	bool IsDeviceSuitable(vk::PhysicalDevice device);
+	QueueFamilyIndices FindQueueFamilies(vk::PhysicalDevice device);
+	SwapChainSupportDetails QuerySwapChainSupport(vk::PhysicalDevice device);
+
+public:
 	GLFWwindow* Window = nullptr;
 
 	std::vector<const char*> ValidationLayers;
@@ -70,57 +129,13 @@ struct RendererData
 
 	DepthBuffer DepthBuffer;
 
-	Buffer DepthImageCPU;
-
-	struct Texture
-	{
-		vk::Image Image;
-		vk::ImageView ImageView;
-		vk::DeviceMemory Memory;
-	} NormalsAttachment, PositionsAttachment;
+	// camera
+	Camera3D Camera;
+	EditorCameraController3D CameraController;
 
 	// ImGui
-	uint32_t ImGuiSubpass = 3;
-};
+	uint32_t ImGuiSubpass = 99;
 
-class Renderer
-{
-public:
-	static bool Init(int width, int height, const char* title);
-	static void Exit();
-
-	static void Begin();
-	static void End();
-
-	static uint32_t FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
-	static GLFWwindow* GetWindow() { return Data.Window; }
-	static uint32_t GetCurrentSwapchainIndex() { return Data.CurrentImageIndex; }
-	static vk::Extent2D GetSwapchainExtent() { return Data.SwapchainExtent; }
-
-	static vk::CommandBuffer CreateSecondaryCommandBuffer();
-
-	static RendererData Data;
-
-private:
-	static bool InitVulkan();
-	static void ExitVulkan();
-
-	static void RenderImGui();
-
-	static bool CreateInstance();
-	static bool PickPhysicalDevice();
-	static bool CreateLogicalDevice();
-	static bool CreateSwapChain();
-	static bool CreateImageViews();
-	static bool CreateDepthBuffer();
-	static bool CreateRenderPass();
-	static bool CreateDescriptorPool();
-	static bool CreateFrambuffers();
-	static bool CreateCommandPool();
-	static bool CreateCommandBuffer();
-	static bool CreateSemaphores();
-
-	static bool IsDeviceSuitable(vk::PhysicalDevice device);
-	static QueueFamilyIndices FindQueueFamilies(vk::PhysicalDevice device);
-	static SwapChainSupportDetails QuerySwapChainSupport(vk::PhysicalDevice device);
+protected:
+	Renderer();
 };

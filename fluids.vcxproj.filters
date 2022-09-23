@@ -54,13 +54,13 @@
     <ClInclude Include="src\app\Dataset.h">
       <Filter>src\app</Filter>
     </ClInclude>
-    <ClInclude Include="src\app\renderer\AdvancedFluidRenderer.h">
+    <ClInclude Include="src\app\renderer\_AdvancedFluidRenderer.h">
       <Filter>src\app\renderer</Filter>
     </ClInclude>
     <ClInclude Include="src\app\renderer\FluidRenderer.h">
       <Filter>src\app\renderer</Filter>
     </ClInclude>
-    <ClInclude Include="src\app\renderer\PointFluidRenderer.h">
+    <ClInclude Include="src\app\renderer\AdvancedFluidRenderer.h">
       <Filter>src\app\renderer</Filter>
     </ClInclude>
     <ClInclude Include="src\engine\Application.h">
@@ -174,9 +174,12 @@
     <ClInclude Include="vendor\imgui\backends\imgui_impl_vulkan.h">
       <Filter>vendor\imgui\backends</Filter>
     </ClInclude>
+    <ClInclude Include="src\app\renderer\PointFluidRenderer.h">
+      <Filter>src\app\renderer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\app\renderer\PointFluidRenderer.cpp">
+    <ClCompile Include="src\app\renderer\AdvancedFluidRenderer.cpp">
       <Filter>src\app\renderer</Filter>
     </ClCompile>
     <ClCompile Include="src\engine\Application.cpp">
@@ -271,6 +274,9 @@
     </ClCompile>
     <ClCompile Include="vendor\imgui\backends\imgui_impl_vulkan.cpp">
       <Filter>vendor\imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="src\app\renderer\PointFluidRenderer.cpp">
+      <Filter>src\app\renderer</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

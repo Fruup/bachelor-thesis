@@ -1,116 +1,71 @@
 #pragma once
 
+#include <engine/renderer/objects/Shader.h>
+#include <engine/renderer/objects/Pipeline.h>
+#include <engine/renderer/objects/VertexBuffer.h>
+#include <engine/renderer/Renderer.h>
+
+//#define VMA_IMPLEMENTATION
+//#include <vma/vk_mem_alloc.h>
+
 #include "FluidRenderer.h"
 
-#include <engine/renderer/objects/Pipeline.h>
-#include <engine/renderer/objects/Shader.h>
-#include <engine/renderer/objects/VertexBuffer.h>
-#include <engine/renderer/objects/Buffer.h>
-
-struct Vertex
+class PointFluidRenderer : public Renderer, public FluidRenderer
 {
-	glm::vec3 Position;
-	glm::vec2 UV;
+	struct Vertex
+	{
+		glm::vec3 Position;
+		glm::vec2 UV;
 
-	static const std::array<vk::VertexInputAttributeDescription, 2> Attributes;
-	static const vk::VertexInputBindingDescription Binding;
-};
+		static const std::array<vk::VertexInputAttributeDescription, 2> Attributes;
+		static const vk::VertexInputBindingDescription Binding;
+	};
 
-struct UniformBufferObject
-{
-	glm::mat4 View;
-	glm::mat4 Projection;
+	struct UniformBufferObject
+	{
+		glm::mat4 View;
+		glm::mat4 Projection;
 
-	float Radius; // world space
-};
+		float Radius; // world space
+	};
 
-class PointFluidRenderer : public FluidRenderer
-{
 public:
 	bool VInit() override;
 	void VExit() override;
 
-	void RenderFrame() override;
+	void Render() override;
+	void Update(float time) override
+	{
+		Renderer::Update(time);
+	}
 
 private:
-	void CollectRenderData();
+	bool CreateRenderPass() override;
+	bool CreateFramebuffers() override;
 
-	void UpdateParticleBuffer();
+private:
+	bool CreateUniformBuffer();
+	bool CreateVertexBuffer();
+	bool CreatePipeline();
+	bool CreateDescriptorSet();
+
 	void UpdateUniforms();
-	void UpdateDescriptorSet();
-
-	void UpdateDescriptorSetDepth();
-	void UpdateDescriptorSetRayMarch();
-	void UpdateDescriptorSetComposition();
-
-	void InitDepthPass();
-	void InitRayMarchPass();
-	void InitCompositionPass();
+	void UpdateDescriptorSets();
+	void CollectRenderData();
 
 	void RenderUI();
 
-	struct
-	{
-		struct
-		{
-			glm::mat4 View;
-			glm::mat4 Projection;
+private:
+	Shader VertexShader, FragmentShader;
+	Pipeline Pipeline;
 
-			float Radius; // world space
-		} Uniforms;
+	vk::DescriptorSet DescriptorSet;
 
-		Buffer UniformBuffer;
-
-		vk::DescriptorSet DescriptorSet;
-		Pipeline Pipeline;
-		Shader FragmentShader, VertexShader;
-	} DepthPass;
-
-	struct
-	{
-		struct
-		{
-			glm::mat4 ViewProjectionInv;
-			glm::vec2 Resolution;
-		} Uniforms;
-
-		Buffer UniformBuffer;
-
-		vk::DescriptorSet DescriptorSet;
-		Pipeline Pipeline;
-		Shader FragmentShader, VertexShader;
-	} RayMarchPass;
-
-	struct
-	{
-		struct
-		{
-			glm::vec3 CameraPosition;
-			glm::vec3 CameraDirection;
-
-			glm::vec3 LightDirection;
-		} Uniforms;
-
-		Buffer UniformBuffer;
-
-		vk::DescriptorSet DescriptorSet;
-		Pipeline Pipeline;
-		Shader FragmentShader, VertexShader;
-	} CompositionPass;
-
-	std::vector<Vertex> Vertices;
-	uint32_t CurrentVertex = 0;
+	UniformBufferObject Uniforms;
+	Buffer UniformBuffer;
 
 	VertexBuffer VertexBuffer;
-
-	vk::CommandBuffer CommandBuffer;
-
-	struct
-	{
-		Buffer CPU;
-		Buffer GPU;
-		size_t Size;
-	} ParticleBuffer;
+	uint32_t NumVertices;
 
 	bool Paused = false;
 };

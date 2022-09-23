@@ -6,7 +6,7 @@
 
 uint32_t Renderer::FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
 {
-	auto memProps = Renderer::Data.PhysicalDevice.getMemoryProperties();
+	auto memProps = Renderer::GetInstance().PhysicalDevice.getMemoryProperties();
 
 	for (uint32_t i = 0; i < memProps.memoryTypeCount; i++)
 	{
@@ -67,7 +67,7 @@ vk::Extent2D ChooseSwapExtent(const vk::SurfaceCapabilitiesKHR& caps)
 		return caps.currentExtent;
 
 	int w, h;
-	glfwGetFramebufferSize(Renderer::Data.Window, &w, &h);
+	glfwGetFramebufferSize(Renderer::GetInstance().Window, &w, &h);
 
 	vk::Extent2D extent{ uint32_t(w), uint32_t(h) };
 
@@ -81,7 +81,7 @@ bool Renderer::IsDeviceSuitable(vk::PhysicalDevice device)
 {
 	// check extensions
 	const auto availableExtensions = device.enumerateDeviceExtensionProperties();
-	std::set<std::string> requiredExtensions(Data.DeviceExtensions.begin(), Data.DeviceExtensions.end());
+	std::set<std::string> requiredExtensions(DeviceExtensions.begin(), DeviceExtensions.end());
 
 	for (const auto& ext : availableExtensions)
 		requiredExtensions.erase(ext.extensionName);
@@ -117,7 +117,7 @@ QueueFamilyIndices Renderer::FindQueueFamilies(vk::PhysicalDevice device)
 	{
 		if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics)
 			indices.GraphicsFamily = i;
-		if (device.getSurfaceSupportKHR(i, Data.Surface))
+		if (device.getSurfaceSupportKHR(i, Surface))
 			indices.PresentFamily = i;
 
 		if (indices.IsComplete())
@@ -133,18 +133,23 @@ SwapChainSupportDetails Renderer::QuerySwapChainSupport(vk::PhysicalDevice devic
 {
 	SwapChainSupportDetails details;
 
-	details.Caps = device.getSurfaceCapabilitiesKHR(Data.Surface);
-	details.Formats = device.getSurfaceFormatsKHR(Data.Surface);
-	details.PresentModes = device.getSurfacePresentModesKHR(Data.Surface);
+	details.Caps = device.getSurfaceCapabilitiesKHR(Surface);
+	details.Formats = device.getSurfaceFormatsKHR(Surface);
+	details.PresentModes = device.getSurfacePresentModesKHR(Surface);
 
 	return details;
+}
+
+Renderer::Renderer():
+	CameraController(Camera)
+{
 }
 
 bool Renderer::CreateInstance()
 {
 	// Use validation layers if this is a debug build
 #if DEBUG
-	Data.ValidationLayers.push_back("VK_LAYER_KHRONOS_validation");
+	ValidationLayers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
 
 	// VkApplicationInfo allows the programmer to specifiy some basic information about the
@@ -167,11 +172,11 @@ bool Renderer::CreateInstance()
 		.setPApplicationInfo(&appInfo)
 		.setEnabledExtensionCount(glfwExtensionCount)
 		.setPpEnabledExtensionNames(glfwExtensions)
-		.setPEnabledLayerNames(Data.ValidationLayers);
+		.setPEnabledLayerNames(ValidationLayers);
 
 	// Create the Vulkan instance.
 	try {
-		Data.Instance = vk::createInstance(instInfo);
+		Instance = vk::createInstance(instInfo);
 	}
 	catch (std::exception e) {
 		std::cout << "Could not create a Vulkan instance: " << e.what() << std::endl;
@@ -183,24 +188,24 @@ bool Renderer::CreateInstance()
 
 bool Renderer::PickPhysicalDevice()
 {
-	auto devices = Data.Instance.enumeratePhysicalDevices();
+	auto devices = Instance.enumeratePhysicalDevices();
 
 	for (auto& device : devices)
 	{
 		if (IsDeviceSuitable(device))
 		{
-			Data.PhysicalDevice = device;
+			PhysicalDevice = device;
 			break;
 		}
 	}
 
-	if (!Data.PhysicalDevice)
+	if (!PhysicalDevice)
 	{
 		SPDLOG_ERROR("No suitable graphics device was found!");
 		return false;
 	}
 
-	Data.QueueIndices = FindQueueFamilies(Data.PhysicalDevice);
+	QueueIndices = FindQueueFamilies(PhysicalDevice);
 
 	return true;
 }
@@ -212,8 +217,8 @@ bool Renderer::CreateLogicalDevice()
 
 	std::vector<vk::DeviceQueueCreateInfo> queueInfos;
 	std::set<uint32_t> uniqueQueueFamilies{
-		Data.QueueIndices.GraphicsFamily.value(),
-		Data.QueueIndices.PresentFamily.value(),
+		QueueIndices.GraphicsFamily.value(),
+		QueueIndices.PresentFamily.value(),
 	};
 
 	for (auto familyIndex : uniqueQueueFamilies)
@@ -226,31 +231,31 @@ bool Renderer::CreateLogicalDevice()
 	vk::DeviceCreateInfo createInfo;
 	createInfo
 		.setQueueCreateInfos(queueInfos)
-		.setPEnabledExtensionNames(Data.DeviceExtensions)
+		.setPEnabledExtensionNames(DeviceExtensions)
 		.setPEnabledFeatures(&deviceFeatures)
-		.setPEnabledLayerNames(Data.ValidationLayers);
+		.setPEnabledLayerNames(ValidationLayers);
 
-	Data.Device = Data.PhysicalDevice.createDevice(createInfo);
+	Device = PhysicalDevice.createDevice(createInfo);
 
-	if (!Data.Device)
+	if (!Device)
 	{
 		SPDLOG_ERROR("Device creation failed!");
 		return false;
 	}
 
 	// get graphics queue
-	Data.GraphicsQueue = Data.Device.getQueue(Data.QueueIndices.GraphicsFamily.value(), 0);
+	GraphicsQueue = Device.getQueue(QueueIndices.GraphicsFamily.value(), 0);
 
-	if (!Data.GraphicsQueue)
+	if (!GraphicsQueue)
 	{
 		SPDLOG_ERROR("Graphics queue creation failed!");
 		return false;
 	}
 
 	// get presentation queue
-	Data.PresentationQueue = Data.Device.getQueue(Data.QueueIndices.PresentFamily.value(), 0);
+	PresentationQueue = Device.getQueue(QueueIndices.PresentFamily.value(), 0);
 
-	if (!Data.PresentationQueue)
+	if (!PresentationQueue)
 	{
 		SPDLOG_ERROR("Presentation queue creation failed!");
 		return false;
@@ -261,7 +266,7 @@ bool Renderer::CreateLogicalDevice()
 
 bool Renderer::CreateSwapChain()
 {
-	auto support = QuerySwapChainSupport(Data.PhysicalDevice);
+	auto support = QuerySwapChainSupport(PhysicalDevice);
 
 	auto format = ChooseSwapSurfaceFormat(support.Formats);
 	auto presentMode = ChooseSwapPresentMode(support.PresentModes);
@@ -272,7 +277,7 @@ bool Renderer::CreateSwapChain()
 		imageCount = support.Caps.minImageCount;
 
 	vk::SwapchainCreateInfoKHR info;
-	info.setSurface(Data.Surface)
+	info.setSurface(Surface)
 		.setMinImageCount(imageCount)
 		.setImageFormat(format.format)
 		.setImageColorSpace(format.colorSpace)
@@ -285,11 +290,11 @@ bool Renderer::CreateSwapChain()
 		.setClipped(true);
 
 	std::array<uint32_t, 2> queueFamilyIndices{
-		Data.QueueIndices.GraphicsFamily.value(),
-		Data.QueueIndices.PresentFamily.value(),
+		QueueIndices.GraphicsFamily.value(),
+		QueueIndices.PresentFamily.value(),
 	};
 
-	if (Data.QueueIndices.GraphicsFamily != Data.QueueIndices.PresentFamily)
+	if (QueueIndices.GraphicsFamily != QueueIndices.PresentFamily)
 	{
 		info.setImageSharingMode(vk::SharingMode::eConcurrent)
 			.setQueueFamilyIndices(queueFamilyIndices);
@@ -299,16 +304,16 @@ bool Renderer::CreateSwapChain()
 		info.setImageSharingMode(vk::SharingMode::eExclusive);
 	}
 
-	Data.Swapchain = Data.Device.createSwapchainKHR(info);
-	if (!Data.Swapchain)
+	Swapchain = Device.createSwapchainKHR(info);
+	if (!Swapchain)
 	{
 		SPDLOG_ERROR("Failed to create swapchain!");
 		return false;
 	}
 
-	Data.SwapchainImages = Data.Device.getSwapchainImagesKHR(Data.Swapchain);
-	Data.SwapchainFormat = format.format;
-	Data.SwapchainExtent = extent;
+	SwapchainImages = Device.getSwapchainImagesKHR(Swapchain);
+	SwapchainFormat = format.format;
+	SwapchainExtent = extent;
 
 	return true;
 }

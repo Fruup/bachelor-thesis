@@ -127,7 +127,7 @@ bool Shader::Create(
 
 	// create module
 	vk::ShaderModuleCreateInfo info({}, code.size() * sizeof(uint32_t), code.data());
-	Module = Renderer::Data.Device.createShaderModule(info);
+	Module = Renderer::GetInstance().Device.createShaderModule(info);
 
 	if (!Module)
 	{
@@ -161,7 +161,7 @@ void Shader::Destroy()
 {
 	if (Module)
 	{
-		Renderer::Data.Device.destroyShaderModule(Module);
+		Renderer::GetInstance().Device.destroyShaderModule(Module);
 		Module = nullptr;
 	}
 }

@@ -9,7 +9,7 @@ bool Buffer::Create(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryP
 		.setUsage(usage)
 		.setSize(size);
 
-	Buffer = Renderer::Data.Device.createBuffer(info);
+	Buffer = Renderer::GetInstance().Device.createBuffer(info);
 	if (!Buffer)
 	{
 		SPDLOG_ERROR("Vertex buffer creation failed!");
@@ -17,20 +17,20 @@ bool Buffer::Create(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryP
 	}
 
 	// allocate buffer memory
-	auto requirements = Renderer::Data.Device.getBufferMemoryRequirements(Buffer);
+	auto requirements = Renderer::GetInstance().Device.getBufferMemoryRequirements(Buffer);
 	vk::MemoryAllocateInfo allocInfo;
 	allocInfo
 		.setAllocationSize(requirements.size)
 		.setMemoryTypeIndex(Renderer::FindMemoryType(requirements.memoryTypeBits, properties));
 
-	Memory = Renderer::Data.Device.allocateMemory(allocInfo);
+	Memory = Renderer::GetInstance().Device.allocateMemory(allocInfo);
 	if (!Memory)
 	{
 		SPDLOG_ERROR("Buffer memory creation failed!");
 		return false;
 	}
 
-	Renderer::Data.Device.bindBufferMemory(Buffer, Memory, 0);
+	Renderer::GetInstance().Device.bindBufferMemory(Buffer, Memory, 0);
 
 	Size = size;
 
@@ -41,20 +41,20 @@ void Buffer::Destroy()
 {
 	if (Memory)
 	{
-		Renderer::Data.Device.freeMemory(Memory);
+		Renderer::GetInstance().Device.freeMemory(Memory);
 		Memory = nullptr;
 	}
 
 	if (Buffer)
 	{
-		Renderer::Data.Device.destroyBuffer(Buffer);
+		Renderer::GetInstance().Device.destroyBuffer(Buffer);
 		Buffer = nullptr;
 	}
 }
 
 void Buffer::Map(void* source, vk::DeviceSize size, vk::DeviceSize offset)
 {
-	void* target = Renderer::Data.Device.mapMemory(Memory, offset, size);
+	void* target = Renderer::GetInstance().Device.mapMemory(Memory, offset, size);
 	memcpy(target, source, size);
-	Renderer::Data.Device.unmapMemory(Memory);
+	Renderer::GetInstance().Device.unmapMemory(Memory);
 }

@@ -2,13 +2,9 @@
 
 #include "PointFluidRenderer.h"
 
-#include <engine/renderer/Renderer.h>
 #include <engine/renderer/objects/Command.h>
-#include <engine/assets/AssetManager.h>
 
-#include <engine/utils/PerformanceTimer.h>
-
-static vk::Device& Device = Renderer::Data.Device;
+// ------------------------------------------------------------------------
 
 const float SPHERE_RADIUS = .1f;
 
@@ -17,7 +13,7 @@ const uint32_t MAX_VERTICES = MAX_PARTICLES * 6;
 
 // ------------------------------------------------------------------------
 
-decltype(Vertex::Attributes) Vertex::Attributes = {
+decltype(PointFluidRenderer::Vertex::Attributes) PointFluidRenderer::Vertex::Attributes = {
 	// uint32_t location
 	// uint32_t binding
 	// Format format = Format::eUndefined
@@ -26,9 +22,9 @@ decltype(Vertex::Attributes) Vertex::Attributes = {
 	vk::VertexInputAttributeDescription{ 1, 0, vk::Format::eR32G32Sfloat, offsetof(Vertex, UV) },
 };
 
-decltype(Vertex::Binding) Vertex::Binding = vk::VertexInputBindingDescription{
+decltype(PointFluidRenderer::Vertex::Binding) PointFluidRenderer::Vertex::Binding = vk::VertexInputBindingDescription{
 	0, // uint32_t binding
-	sizeof(Vertex), // uint32_t stride
+	sizeof(PointFluidRenderer::Vertex), // uint32_t stride
 	vk::VertexInputRate::eVertex, // VertexInputRate inputRate
 };
 
@@ -36,12 +32,12 @@ decltype(Vertex::Binding) Vertex::Binding = vk::VertexInputBindingDescription{
 
 bool PointFluidRenderer::VInit()
 {
-	InitDepthPass();
-	InitRayMarchPass();
-	InitCompositionPass();
+	if (!CreatePipeline()) return false;
+	if (!CreateDescriptorSet()) return false;
+	if (!CreateVertexBuffer()) return false;
+	if (!CreateUniformBuffer()) return false;
 
-	// create command buffer
-	CommandBuffer = Renderer::CreateSecondaryCommandBuffer();
+	ImGuiSubpass = 1;
 
 	// init camera
 	float aspect =
@@ -59,389 +55,297 @@ bool PointFluidRenderer::VInit()
 	CameraController.SetOrientation(glm::quatLookAt(glm::normalize(-CameraController.Position), { 0, 1, 0 }));
 
 	Camera.ComputeMatrices();
-	
-	// create particle buffer
-	{
-		ParticleBuffer.Size = sizeof(Particle) * MAX_PARTICLES + sizeof(int);
-
-		ParticleBuffer.CPU.Create(
-			ParticleBuffer.Size,
-			vk::BufferUsageFlagBits::eTransferSrc,
-			vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible
-		);
-
-		ParticleBuffer.GPU.Create(
-			ParticleBuffer.Size,
-			vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-			vk::MemoryPropertyFlagBits::eDeviceLocal
-		);
-	}
-
-	// create vertex buffer
-	if (!VertexBuffer.Create(sizeof(Vertex) * MAX_VERTICES))
-		return false;
 
 	return true;
 }
 
 void PointFluidRenderer::VExit()
 {
-	DepthPass.FragmentShader.Destroy();
-	DepthPass.VertexShader.Destroy();
-	DepthPass.UniformBuffer.Destroy();
-	DepthPass.Pipeline.Destroy();
+	VertexShader.Destroy();
+	FragmentShader.Destroy();
 
-	RayMarchPass.FragmentShader.Destroy();
-	RayMarchPass.VertexShader.Destroy();
-	RayMarchPass.UniformBuffer.Destroy();
-	RayMarchPass.Pipeline.Destroy();
+	Pipeline.Destroy();
 
-	CompositionPass.FragmentShader.Destroy();
-	CompositionPass.VertexShader.Destroy();
-	CompositionPass.UniformBuffer.Destroy();
-	CompositionPass.Pipeline.Destroy();
-
-	ParticleBuffer.CPU.Destroy();
-	ParticleBuffer.GPU.Destroy();
-
+	UniformBuffer.Destroy();
 	VertexBuffer.Destroy();
+}
 
-	Vertices.clear();
+void PointFluidRenderer::Render()
+{
+	if (!Paused)
+		CurrentFrame = (CurrentFrame + 1) % Dataset.Snapshots.size();
+
+	UpdateUniforms();
+	UpdateDescriptorSets();
+	
+	if (!Paused)
+		CollectRenderData();
+
+	{
+		CommandBuffer.bindDescriptorSets(
+			vk::PipelineBindPoint::eGraphics,
+			Pipeline.GetLayout(),
+			0,
+			DescriptorSet,
+			{});
+		
+		CommandBuffer.bindPipeline(
+			vk::PipelineBindPoint::eGraphics,
+			Pipeline);
+
+		const uint32_t offset = 0;
+		CommandBuffer.bindVertexBuffers(0, VertexBuffer.BufferGPU.Buffer, offset);
+
+		CommandBuffer.draw(NumVertices, 1, 0, 0);
+	}
+
+	if (!Paused)
+		CurrentFrame++;
+
+	RenderUI();
+}
+
+bool PointFluidRenderer::CreateRenderPass()
+{
+	// attachments
+	const uint32_t screenAttachmentIndex = 0;
+	const uint32_t depthAttachmentIndex = 1;
+
+	vk::AttachmentDescription screenAttachment;
+	screenAttachment
+		.setFormat(SwapchainFormat)
+		.setSamples(vk::SampleCountFlagBits::e1)
+		.setLoadOp(vk::AttachmentLoadOp::eClear)
+		.setStoreOp(vk::AttachmentStoreOp::eStore)
+		.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+		.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+		.setInitialLayout(vk::ImageLayout::eUndefined)
+		.setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
+
+	vk::AttachmentDescription depthAttachment;
+	depthAttachment
+		.setFormat(vk::Format::eD32Sfloat)
+		.setSamples(vk::SampleCountFlagBits::e1)
+		.setLoadOp(vk::AttachmentLoadOp::eClear)
+		.setStoreOp(vk::AttachmentStoreOp::eStore)
+		.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+		.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+		.setInitialLayout(vk::ImageLayout::eUndefined)
+		.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+		/*.setFinalLayout(vk::ImageLayout::eTransferSrcOptimal)*/;
+
+	// subpasses
+	vk::SubpassDescription renderSubpass;
+	{
+		vk::AttachmentReference depth(depthAttachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+		vk::AttachmentReference color[] = {
+			vk::AttachmentReference(screenAttachmentIndex, vk::ImageLayout::eColorAttachmentOptimal),
+		};
+
+		renderSubpass
+			.setColorAttachments(color)
+			.setPDepthStencilAttachment(&depth)
+			.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
+	}
+
+	vk::SubpassDescription imguiSubpass;
+	{
+		vk::AttachmentReference color[] = {
+			vk::AttachmentReference(screenAttachmentIndex, vk::ImageLayout::eColorAttachmentOptimal),
+		};
+
+		imguiSubpass
+			.setColorAttachments(color)
+			.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
+	}
+
+	const uint32_t renderSubpassIndex = 0;
+	const uint32_t imguiSubpassIndex = 1;
+
+	std::array<vk::SubpassDescription, 2> subpasses = {
+		renderSubpass,
+		imguiSubpass,
+	};
+
+	// dependencies
+	std::vector<vk::SubpassDependency> dependencies;
+
+	{
+		vk::SubpassDependency dependency;
+		dependency
+			.setSrcSubpass(VK_SUBPASS_EXTERNAL)
+			.setDstSubpass(renderSubpassIndex)
+			.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+			.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+			.setSrcAccessMask(vk::AccessFlagBits::eNone)
+			.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+			.setDependencyFlags(vk::DependencyFlagBits::eByRegion);
+
+		dependencies.push_back(dependency);
+	}
+
+	{
+		vk::SubpassDependency dependency;
+		dependency
+			.setSrcSubpass(renderSubpassIndex)
+			.setDstSubpass(imguiSubpassIndex)
+			.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+			.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+			.setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+			.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+			.setDependencyFlags(vk::DependencyFlagBits::eByRegion);
+
+		dependencies.push_back(dependency);
+	}
+
+	// create render pass
+	{
+		std::vector<vk::AttachmentDescription> attachments = {
+			screenAttachment,
+			depthAttachment,
+		};
+
+		vk::RenderPassCreateInfo info;
+		info.setAttachments(attachments)
+			.setSubpasses(subpasses)
+			.setDependencies(dependencies);
+
+		RenderPass = Device.createRenderPass(info);
+		if (!RenderPass)
+		{
+			SPDLOG_ERROR("Failed to create render pass!");
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool PointFluidRenderer::CreateFramebuffers()
+{
+	SwapchainFramebuffers.resize(SwapchainImages.size());
+
+	for (size_t i = 0; i < SwapchainFramebuffers.size(); i++)
+	{
+		std::vector<vk::ImageView> attachments = {
+			SwapchainImageViews[i],
+			DepthBuffer.GetView(),
+		};
+
+		vk::FramebufferCreateInfo info;
+		info.setAttachments(attachments)
+			.setRenderPass(RenderPass)
+			.setWidth(SwapchainExtent.width)
+			.setHeight(SwapchainExtent.height)
+			.setLayers(1);
+
+		SwapchainFramebuffers[i] = Device.createFramebuffer(info);
+		if (!SwapchainFramebuffers[i])
+		{
+			SPDLOG_ERROR("Swapchain framebuffer creation failed!");
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool PointFluidRenderer::CreateUniformBuffer()
+{
+	return UniformBuffer.Create(
+		sizeof(Uniforms),
+		vk::BufferUsageFlagBits::eUniformBuffer,
+		vk::MemoryPropertyFlagBits::eHostVisible |
+		vk::MemoryPropertyFlagBits::eHostCoherent);
+}
+
+bool PointFluidRenderer::CreateVertexBuffer()
+{
+	return VertexBuffer.Create(sizeof(Vertex) * MAX_VERTICES);
+}
+
+bool PointFluidRenderer::CreatePipeline()
+{
+	bool r;
+
+	// shaders
+	r = VertexShader.Create(
+		"shaders/point.vert",
+		vk::ShaderStageFlagBits::eVertex,
+		{
+			DescriptorSetLayoutBinding{
+				0, 1,
+				vk::DescriptorType::eUniformBuffer,
+				vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment
+			},
+		}
+	);
+
+	r = FragmentShader.Create(
+		"shaders/point.frag",
+		vk::ShaderStageFlagBits::eFragment,
+		{}
+	);
+
+	if (!r) return false;
+
+	// pipeline
+	r = Pipeline.Create(
+		{ VertexShader, FragmentShader },
+		0, // subpass
+		Vertex::Attributes,
+		Vertex::Binding,
+		vk::PrimitiveTopology::eTriangleList,
+		true, // depth
+		true // blend
+	);
+	
+	return true;
+}
+
+bool PointFluidRenderer::CreateDescriptorSet()
+{
+	vk::DescriptorSetAllocateInfo info;
+	info.setDescriptorPool(DescriptorPool)
+		.setDescriptorSetCount(1)
+		.setSetLayouts(Pipeline.GetDescriptorSetLayout());
+
+	DescriptorSet = Device.allocateDescriptorSets(info).front();
+
+	return true;
 }
 
 void PointFluidRenderer::UpdateUniforms()
 {
 	Camera.ComputeMatrices();
 
-	const auto& view = Camera.GetView();
-	const auto& projection = Camera.GetProjection();
+	Uniforms.Projection = Camera.GetProjection();
+	Uniforms.View = Camera.GetView();
+	Uniforms.Radius = SPHERE_RADIUS;
 
-	// depth pass
-	{
-		DepthPass.Uniforms.View = view;
-		DepthPass.Uniforms.Radius = SPHERE_RADIUS;
-		DepthPass.Uniforms.Projection = projection;
-
-		DepthPass.UniformBuffer.Map(&CompositionPass.Uniforms, sizeof(CompositionPass.Uniforms));
-	}
-
-	// ray march pass
-	{
-		RayMarchPass.Uniforms.ViewProjectionInv = glm::inverse(Camera.GetProjectionView());
-		RayMarchPass.Uniforms.Resolution = glm::vec2{
-			float(Renderer::GetSwapchainExtent().width),
-			float(Renderer::GetSwapchainExtent().height),
-		};
-
-		RayMarchPass.UniformBuffer.Map(&CompositionPass.Uniforms, sizeof(CompositionPass.Uniforms));
-	}
-
-	// composition pass
-	{
-		CompositionPass.Uniforms.CameraPosition = CameraController.Position;
-		CompositionPass.Uniforms.CameraDirection = CameraController.System[2];
-		CompositionPass.Uniforms.LightDirection = glm::vec3(-1, -1, 1);
-
-		CompositionPass.UniformBuffer.Map(&CompositionPass.Uniforms, sizeof(CompositionPass.Uniforms));
-	}
+	// copy
+	UniformBuffer.Map(&Uniforms, sizeof(Uniforms));
 }
 
-void PointFluidRenderer::UpdateDescriptorSet()
+void PointFluidRenderer::UpdateDescriptorSets()
 {
 	std::vector<vk::WriteDescriptorSet> writes;
 
-	// depth pass
 	{
 		vk::DescriptorBufferInfo bufferInfo;
 		bufferInfo
+			.setBuffer(UniformBuffer)
 			.setOffset(0)
-			.setBuffer(DepthPass.UniformBuffer)
-			.setRange(DepthPass.UniformBuffer.Size);
+			.setRange(UniformBuffer.Size);
 
 		vk::WriteDescriptorSet write;
 		write
+			.setBufferInfo(bufferInfo)
 			.setDescriptorCount(1)
-			.setDstBinding(0)
-			.setDstSet(DepthPass.DescriptorSet)
-			.setDstArrayElement(0)
 			.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-			.setBufferInfo(bufferInfo);
-
-		writes.push_back(write);
-	}
-
-	// ray march pass
-	{
-		// uniform buffer
-		{
-			vk::DescriptorBufferInfo bufferInfo;
-			bufferInfo
-				.setOffset(0)
-				.setBuffer(RayMarchPass.UniformBuffer)
-				.setRange(RayMarchPass.UniformBuffer.Size);
-
-			vk::WriteDescriptorSet write;
-			write
-				.setDescriptorCount(1)
-				.setDstBinding(0)
-				.setDstSet(RayMarchPass.DescriptorSet)
-				.setDstArrayElement(0)
-				.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-				.setBufferInfo(bufferInfo);
-
-			writes.push_back(write);
-		}
-
-		// constant particle buffer
-		{
-			vk::DescriptorBufferInfo bufferInfo;
-			bufferInfo
-				.setBuffer(ParticleBuffer.GPU)
-				.setRange(ParticleBuffer.Size);
-
-			vk::WriteDescriptorSet write;
-			write
-				.setDescriptorCount(1)
-				.setDstBinding(1)
-				.setDstSet(RayMarchPass.DescriptorSet)
-				.setDstArrayElement(0)
-				.setDescriptorType(vk::DescriptorType::eStorageBuffer)
-				.setBufferInfo(bufferInfo);
-
-			writes.push_back(write);
-		}
-
-		// depth input attachment
-		{
-			vk::DescriptorImageInfo imageInfo;
-			imageInfo
-				.setImageView(Renderer::Data.DepthBuffer.GetView())
-				.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-
-			vk::WriteDescriptorSet write;
-			write
-				.setDescriptorCount(1)
-				.setDstBinding(2)
-				.setDstSet(CompositionPass.DescriptorSet)
-				.setDstArrayElement(0)
-				.setDescriptorType(vk::DescriptorType::eInputAttachment)
-				.setImageInfo(imageInfo);
-
-			writes.push_back(write);
-		}
-	}
-
-	// composition pass
-	{
-		// uniform buffer
-		{
-			vk::DescriptorBufferInfo bufferInfo;
-			bufferInfo
-				.setOffset(0)
-				.setBuffer(CompositionPass.UniformBuffer)
-				.setRange(CompositionPass.UniformBuffer.Size);
-
-			vk::WriteDescriptorSet write;
-			write
-				.setDescriptorCount(1)
-				.setDstBinding(0)
-				.setDstSet(CompositionPass.DescriptorSet)
-				.setDstArrayElement(0)
-				.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-				.setBufferInfo(bufferInfo);
-
-			writes.push_back(write);
-		}
-
-		// positions attachment
-		{
-			vk::DescriptorImageInfo imageInfo;
-			imageInfo
-				.setImageView(Renderer::Data.PositionsAttachment.ImageView)
-				.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-
-			vk::WriteDescriptorSet write;
-			write
-				.setDescriptorCount(1)
-				.setDstBinding(1)
-				.setDstSet(CompositionPass.DescriptorSet)
-				.setDstArrayElement(0)
-				.setDescriptorType(vk::DescriptorType::eInputAttachment)
-				.setImageInfo(imageInfo);
-
-			writes.push_back(write);
-		}
-
-		// normals attachment
-		{
-			vk::DescriptorImageInfo imageInfo;
-			imageInfo
-				.setImageView(Renderer::Data.NormalsAttachment.ImageView)
-				.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-
-			vk::WriteDescriptorSet write;
-			write
-				.setDescriptorCount(1)
-				.setDstBinding(2)
-				.setDstSet(CompositionPass.DescriptorSet)
-				.setDstArrayElement(0)
-				.setDescriptorType(vk::DescriptorType::eInputAttachment)
-				.setImageInfo(imageInfo);
-
-			writes.push_back(write);
-		}
-	}
-
-	Device.updateDescriptorSets(writes, {});
-}
-
-void PointFluidRenderer::UpdateDescriptorSetDepth()
-{
-	std::vector<vk::WriteDescriptorSet> writes;
-
-	vk::DescriptorBufferInfo bufferInfo;
-	bufferInfo
-		.setOffset(0)
-		.setBuffer(DepthPass.UniformBuffer)
-		.setRange(DepthPass.UniformBuffer.Size);
-
-	vk::WriteDescriptorSet write;
-	write
-		.setDescriptorCount(1)
-		.setDstBinding(0)
-		.setDstSet(DepthPass.DescriptorSet)
-		.setDstArrayElement(0)
-		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-		.setBufferInfo(bufferInfo);
-
-	writes.push_back(write);
-
-	Device.updateDescriptorSets(writes, {});
-}
-
-void PointFluidRenderer::UpdateDescriptorSetRayMarch()
-{
-	std::vector<vk::WriteDescriptorSet> writes;
-
-	// uniform buffer
-	{
-		vk::DescriptorBufferInfo bufferInfo;
-		bufferInfo
-			.setOffset(0)
-			.setBuffer(RayMarchPass.UniformBuffer)
-			.setRange(RayMarchPass.UniformBuffer.Size);
-
-		vk::WriteDescriptorSet write;
-		write
-			.setDescriptorCount(1)
 			.setDstBinding(0)
-			.setDstSet(RayMarchPass.DescriptorSet)
-			.setDstArrayElement(0)
-			.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-			.setBufferInfo(bufferInfo);
-
-		writes.push_back(write);
-	}
-
-	// constant particle buffer
-	{
-		vk::DescriptorBufferInfo bufferInfo;
-		bufferInfo
-			.setBuffer(ParticleBuffer.GPU)
-			.setRange(ParticleBuffer.Size);
-
-		vk::WriteDescriptorSet write;
-		write
-			.setDescriptorCount(1)
-			.setDstBinding(1)
-			.setDstSet(RayMarchPass.DescriptorSet)
-			.setDstArrayElement(0)
-			.setDescriptorType(vk::DescriptorType::eStorageBuffer)
-			.setBufferInfo(bufferInfo);
-
-		writes.push_back(write);
-	}
-
-	// depth input attachment
-	{
-		vk::DescriptorImageInfo imageInfo;
-		imageInfo
-			.setImageView(Renderer::Data.DepthBuffer.GetView())
-			.setImageLayout(vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal);
-
-		vk::WriteDescriptorSet write;
-		write
-			.setDescriptorCount(1)
-			.setDstBinding(2)
-			.setDstSet(RayMarchPass.DescriptorSet)
-			.setDstArrayElement(0)
-			.setDescriptorType(vk::DescriptorType::eInputAttachment)
-			.setImageInfo(imageInfo);
-
-		writes.push_back(write);
-	}
-
-	Device.updateDescriptorSets(writes, {});
-}
-
-void PointFluidRenderer::UpdateDescriptorSetComposition()
-{
-	std::vector<vk::WriteDescriptorSet> writes;
-
-	// uniform buffer
-	{
-		vk::DescriptorBufferInfo bufferInfo;
-		bufferInfo
-			.setOffset(0)
-			.setBuffer(CompositionPass.UniformBuffer)
-			.setRange(CompositionPass.UniformBuffer.Size);
-
-		vk::WriteDescriptorSet write;
-		write
-			.setDescriptorCount(1)
-			.setDstBinding(0)
-			.setDstSet(CompositionPass.DescriptorSet)
-			.setDstArrayElement(0)
-			.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-			.setBufferInfo(bufferInfo);
-
-		writes.push_back(write);
-	}
-
-	// positions attachment
-	{
-		vk::DescriptorImageInfo imageInfo;
-		imageInfo
-			.setImageView(Renderer::Data.PositionsAttachment.ImageView)
-			.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-
-		vk::WriteDescriptorSet write;
-		write
-			.setDescriptorCount(1)
-			.setDstBinding(1)
-			.setDstSet(CompositionPass.DescriptorSet)
-			.setDstArrayElement(0)
-			.setDescriptorType(vk::DescriptorType::eInputAttachment)
-			.setImageInfo(imageInfo);
-
-		writes.push_back(write);
-	}
-
-	// normals attachment
-	{
-		vk::DescriptorImageInfo imageInfo;
-		imageInfo
-			.setImageView(Renderer::Data.NormalsAttachment.ImageView)
-			.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
-
-		vk::WriteDescriptorSet write;
-		write
-			.setDescriptorCount(1)
-			.setDstBinding(2)
-			.setDstSet(CompositionPass.DescriptorSet)
-			.setDstArrayElement(0)
-			.setDescriptorType(vk::DescriptorType::eInputAttachment)
-			.setImageInfo(imageInfo);
+			.setDstSet(DescriptorSet);
 
 		writes.push_back(write);
 	}
@@ -451,18 +355,12 @@ void PointFluidRenderer::UpdateDescriptorSetComposition()
 
 void PointFluidRenderer::CollectRenderData()
 {
-	CurrentVertex = 0;
+	NumVertices = 0;
 
-	Vertex* target = 
-		reinterpret_cast<Vertex*>(Renderer::Data.Device.mapMemory(VertexBuffer.BufferCPU.Memory, 0, VertexBuffer.BufferCPU.Size));
+	Vertex* target = reinterpret_cast<Vertex*>(
+		Device.mapMemory(VertexBuffer.BufferCPU.Memory, 0, VertexBuffer.BufferCPU.Size));
 
-	glm::vec3 up(0, 1, 0);
-
-	/*struct {
-		glm::vec3 Position{ 0, 0, 0 };
-	} particle;*/
-
-	Vertex quad[6];
+	const glm::vec3 up(0, 1, 0);
 
 	for (auto& particle : Dataset.Snapshots[CurrentFrame])
 	{
@@ -475,332 +373,30 @@ void PointFluidRenderer::CollectRenderData()
 		glm::vec3 bottomLeft = particle.Position + SPHERE_RADIUS * (-x - y);
 		glm::vec3 bottomRight = particle.Position + SPHERE_RADIUS * (+x - y);
 
-		quad[0] = { topLeft, { 0, 0 } };
-		quad[1] = { bottomLeft, { 0, 1 } };
-		quad[2] = { topRight, { 1, 0 } };
-
-		quad[3] = { topRight, { 1, 0 } };
-		quad[4] = { bottomLeft, { 0, 1 } };
-		quad[5] = { bottomRight, { 1, 1 } };
-
-		memcpy(target + CurrentVertex, quad, sizeof(quad));
-		CurrentVertex += 6;
+		target[NumVertices++] = { topLeft, { 0, 0 } };
+		target[NumVertices++] = { bottomLeft, { 0, 1 } };
+		target[NumVertices++] = { topRight, { 1, 0 } };
+		target[NumVertices++] = { topRight, { 1, 0 } };
+		target[NumVertices++] = { bottomLeft, { 0, 1 } };
+		target[NumVertices++] = { bottomRight, { 1, 1 } };
 	}
 
-	Renderer::Data.Device.unmapMemory(VertexBuffer.BufferCPU.Memory);
-}
+	Device.unmapMemory(VertexBuffer.BufferCPU.Memory);
 
-void PointFluidRenderer::RenderFrame()
-{
-	PerformanceTimer _timer("PointFluidRenderer::RenderFrame");
-
-	if (CurrentFrame > Dataset.Snapshots.size() - 1)
-		CurrentFrame = 0;
-
-	if (!Paused)
+	// copy
+	if (NumVertices > 0)
 	{
-		PerformanceTimer _timer("CollectRenderData");
-
-		CollectRenderData();
+		auto cmd = Command::BeginOneTimeCommand();
+		VertexBuffer.Copy(cmd);
+		Command::EndOneTimeCommand(cmd);
 	}
-
-	UpdateParticleBuffer();
-	UpdateUniforms();
-
-	//UpdateDescriptorSet();
-
-	// begin command buffer
-	auto& cmd = Renderer::Data.CommandBuffer;
-	//auto& cmd = CommandBuffer;
-
-	/*{
-		vk::CommandBufferInheritanceInfo inheritance;
-		inheritance
-			.setFramebuffer(Renderer::Data.SwapchainFramebuffers[Renderer::GetCurrentSwapchainIndex()])
-			.setSubpass(0)
-			.setRenderPass(Renderer::Data.RenderPass);
-
-		vk::CommandBufferBeginInfo info;
-		info.setFlags(vk::CommandBufferUsageFlagBits::eRenderPassContinue)
-			.setPInheritanceInfo(&inheritance);
-
-		cmd.reset();
-		cmd.begin(info);
-	}*/
-
-	// issue buffer copies
-	if (CurrentVertex > 0)
-	{
-		auto copyCmd = Command::BeginOneTimeCommand();
-		VertexBuffer.Copy(copyCmd);
-		Command::EndOneTimeCommand(copyCmd);
-	}
-
-	// 0. pass: depth
-	{
-		UpdateDescriptorSetDepth();
-
-		cmd.bindDescriptorSets(
-			vk::PipelineBindPoint::eGraphics,
-			DepthPass.Pipeline.GetLayout(),
-			0,
-			DepthPass.DescriptorSet,
-			{}
-		);
-
-		cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, DepthPass.Pipeline);
-
-		const vk::DeviceSize offset = 0;
-		cmd.bindVertexBuffers(0, VertexBuffer.BufferGPU.Buffer, offset);
-
-		cmd.draw(CurrentVertex, 1, 0, 0);
-	}
-
-	// 1. pass: ray march
-	{
-		UpdateDescriptorSetRayMarch();
-
-		cmd.nextSubpass(vk::SubpassContents::eInline);
-
-		cmd.bindDescriptorSets(
-			vk::PipelineBindPoint::eGraphics,
-			RayMarchPass.Pipeline.GetLayout(),
-			0,
-			RayMarchPass.DescriptorSet,
-			{}
-		);
-
-		cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, RayMarchPass.Pipeline);
-
-		cmd.draw(3, 1, 0, 0);
-	}
-
-	// 2. pass: composition
-	{
-		UpdateDescriptorSetComposition();
-
-		cmd.nextSubpass(vk::SubpassContents::eInline);
-
-		cmd.bindDescriptorSets(
-			vk::PipelineBindPoint::eGraphics,
-			CompositionPass.Pipeline.GetLayout(),
-			0,
-			CompositionPass.DescriptorSet,
-			{}
-		);
-
-		cmd.bindPipeline(vk::PipelineBindPoint::eGraphics, CompositionPass.Pipeline);
-
-		cmd.draw(3, 1, 0, 0);
-	}
-
-	//cmd.end();
-
-	if (!Paused)
-		CurrentFrame++;
-
-	RenderUI();
 }
 
 void PointFluidRenderer::RenderUI()
 {
-	ImGui::Begin("Fluid Renderer");
+	ImGui::Begin("PointFluidRenderer");
 
 	ImGui::Checkbox("Paused", &Paused);
 
 	ImGui::End();
-}
-
-void PointFluidRenderer::UpdateParticleBuffer()
-{
-	auto& Device = Renderer::Data.Device;
-	auto& snapshot = Dataset.Snapshots[CurrentFrame];
-
-	// collect particle data
-	int NumParticles = snapshot.size();
-
-	char8_t* data = reinterpret_cast<char8_t*>(
-		Device.mapMemory(ParticleBuffer.CPU.Memory, 0, ParticleBuffer.Size)
-	);
-	
-	//memcpy(data, &NumParticles, sizeof(int));
-	//memcpy(data + sizeof(int), snapshot.data(), ParticleBuffer.Size - sizeof(NumParticles));
-
-	Device.unmapMemory(ParticleBuffer.CPU.Memory);
-
-	// issue copy
-	vk::BufferCopy region{ 0, 0, ParticleBuffer.Size };
-	auto cmd = Command::BeginOneTimeCommand();
-
-	cmd.copyBuffer(ParticleBuffer.CPU.Buffer, ParticleBuffer.GPU.Buffer, region);
-	
-	Command::EndOneTimeCommand(cmd);
-}
-
-void PointFluidRenderer::InitDepthPass()
-{
-	// shaders
-	DepthPass.VertexShader.Create(
-		AssetPathRel("shaders/depthPass.vert"),
-		vk::ShaderStageFlagBits::eVertex,
-		{
-			DescriptorSetLayoutBinding{
-				0, 1,
-				vk::DescriptorType::eUniformBuffer,
-				vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment,
-			}
-		}
-	);
-
-	DepthPass.FragmentShader.Create(
-		AssetPathRel("shaders/depthPass.frag"),
-		vk::ShaderStageFlagBits::eFragment,
-		{}
-	);
-
-	// pipeline
-	DepthPass.Pipeline.Create(
-		{ DepthPass.VertexShader, DepthPass.FragmentShader },
-		0, // subpass
-		Vertex::Attributes,
-		Vertex::Binding,
-		vk::PrimitiveTopology::eTriangleList,
-		true, // depth
-		false // blend
-	);
-
-	// uniform buffer
-	DepthPass.UniformBuffer.Create(
-		sizeof(DepthPass.Uniforms),
-		vk::BufferUsageFlagBits::eUniformBuffer,
-		vk::MemoryPropertyFlagBits::eHostVisible |
-		vk::MemoryPropertyFlagBits::eHostCoherent
-	);
-
-	// descriptor set
-	vk::DescriptorSetAllocateInfo info;
-	info.setDescriptorPool(Renderer::Data.DescriptorPool)
-		.setDescriptorSetCount(1)
-		.setSetLayouts(DepthPass.Pipeline.GetDescriptorSetLayout());
-
-	DepthPass.DescriptorSet = Device.allocateDescriptorSets(info).front();
-}
-
-void PointFluidRenderer::InitRayMarchPass()
-{
-	// shaders
-	RayMarchPass.VertexShader.Create(
-		AssetPathRel("shaders/fullscreen.vert"),
-		vk::ShaderStageFlagBits::eVertex,
-		{}
-	);
-
-	RayMarchPass.FragmentShader.Create(
-		AssetPathRel("shaders/rayMarch.frag"),
-		vk::ShaderStageFlagBits::eFragment,
-		{
-			DescriptorSetLayoutBinding{
-				0, 1,
-				vk::DescriptorType::eUniformBuffer,
-				vk::ShaderStageFlagBits::eFragment,
-			},
-			DescriptorSetLayoutBinding{
-				1, 1,
-				vk::DescriptorType::eStorageBuffer,
-				vk::ShaderStageFlagBits::eFragment,
-			},
-			DescriptorSetLayoutBinding{
-				2, 1,
-				vk::DescriptorType::eInputAttachment,
-				vk::ShaderStageFlagBits::eFragment,
-			},
-		}
-	);
-
-	// pipeline
-	RayMarchPass.Pipeline.Create(
-		{ RayMarchPass.VertexShader, RayMarchPass.FragmentShader },
-		1, // subpass
-		Vertex::Attributes,
-		Vertex::Binding,
-		vk::PrimitiveTopology::eTriangleList,
-		false,
-		false,
-		2
-	);
-
-	// uniform buffer
-	RayMarchPass.UniformBuffer.Create(
-		sizeof(RayMarchPass.Uniforms),
-		vk::BufferUsageFlagBits::eUniformBuffer,
-		vk::MemoryPropertyFlagBits::eHostVisible |
-		vk::MemoryPropertyFlagBits::eHostCoherent
-	);
-
-	// descriptor set
-	vk::DescriptorSetAllocateInfo info;
-	info.setDescriptorPool(Renderer::Data.DescriptorPool)
-		.setDescriptorSetCount(1)
-		.setSetLayouts(RayMarchPass.Pipeline.GetDescriptorSetLayout());
-
-	RayMarchPass.DescriptorSet = Device.allocateDescriptorSets(info).front();
-}
-
-void PointFluidRenderer::InitCompositionPass()
-{
-	// shaders
-	CompositionPass.VertexShader.Create(
-		AssetPathRel("shaders/fullscreen.vert"),
-		vk::ShaderStageFlagBits::eVertex,
-		{}
-	);
-
-	CompositionPass.FragmentShader.Create(
-		AssetPathRel("shaders/composition.frag"),
-		vk::ShaderStageFlagBits::eFragment,
-		{
-			DescriptorSetLayoutBinding{
-				0, 1,
-				vk::DescriptorType::eUniformBuffer,
-				vk::ShaderStageFlagBits::eFragment,
-			},
-			DescriptorSetLayoutBinding{
-				1, 1,
-				vk::DescriptorType::eInputAttachment,
-				vk::ShaderStageFlagBits::eFragment,
-			},
-			DescriptorSetLayoutBinding{
-				2, 1,
-				vk::DescriptorType::eInputAttachment,
-				vk::ShaderStageFlagBits::eFragment,
-			},
-		}
-	);
-
-	// pipeline
-	CompositionPass.Pipeline.Create(
-		{ CompositionPass.VertexShader, CompositionPass.FragmentShader },
-		2, // subpass
-		Vertex::Attributes,
-		Vertex::Binding,
-		vk::PrimitiveTopology::eTriangleList,
-		false,
-		true
-	);
-
-	// uniform buffer
-	CompositionPass.UniformBuffer.Create(
-		sizeof(CompositionPass.Uniforms),
-		vk::BufferUsageFlagBits::eUniformBuffer,
-		vk::MemoryPropertyFlagBits::eHostVisible |
-		vk::MemoryPropertyFlagBits::eHostCoherent
-	);
-
-	// descriptor set
-	vk::DescriptorSetAllocateInfo info;
-	info.setDescriptorPool(Renderer::Data.DescriptorPool)
-		.setDescriptorSetCount(1)
-		.setSetLayouts(CompositionPass.Pipeline.GetDescriptorSetLayout());
-
-	CompositionPass.DescriptorSet = Device.allocateDescriptorSets(info).front();
 }

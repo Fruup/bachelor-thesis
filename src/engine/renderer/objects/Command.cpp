@@ -10,15 +10,15 @@ bool Command::Init()
 	vk::CommandPoolCreateInfo poolInfo;
 	poolInfo
 		.setFlags(vk::CommandPoolCreateFlagBits::eTransient)
-		.setQueueFamilyIndex(Renderer::Data.QueueIndices.GraphicsFamily.value());
-	Pool = Renderer::Data.Device.createCommandPool(poolInfo);
+		.setQueueFamilyIndex(Renderer::GetInstance().QueueIndices.GraphicsFamily.value());
+	Pool = Renderer::GetInstance().Device.createCommandPool(poolInfo);
 
 	return Pool;
 }
 
 void Command::Exit()
 {
-	Renderer::Data.Device.destroyCommandPool(Pool);
+	Renderer::GetInstance().Device.destroyCommandPool(Pool);
 }
 
 vk::CommandBuffer Command::BeginOneTimeCommand()
@@ -29,7 +29,7 @@ vk::CommandBuffer Command::BeginOneTimeCommand()
 		.setCommandBufferCount(1)
 		.setCommandPool(Pool)
 		.setLevel(vk::CommandBufferLevel::ePrimary);
-	vk::CommandBuffer cmd = Renderer::Data.Device.allocateCommandBuffers(allocInfo).front();
+	vk::CommandBuffer cmd = Renderer::GetInstance().Device.allocateCommandBuffers(allocInfo).front();
 
 	// begin buffer
 	vk::CommandBufferBeginInfo beginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit };
@@ -45,9 +45,9 @@ void Command::EndOneTimeCommand(const vk::CommandBuffer& cmd)
 	// submit
 	vk::SubmitInfo submitInfo;
 	submitInfo.setCommandBuffers(cmd);
-	Renderer::Data.GraphicsQueue.submit(submitInfo);
-	Renderer::Data.GraphicsQueue.waitIdle();
+	Renderer::GetInstance().GraphicsQueue.submit(submitInfo);
+	Renderer::GetInstance().GraphicsQueue.waitIdle();
 
 	// free
-	Renderer::Data.Device.freeCommandBuffers(Pool, cmd);
+	Renderer::GetInstance().Device.freeCommandBuffers(Pool, cmd);
 }

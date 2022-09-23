@@ -32,11 +32,12 @@ bool Pipeline::Create(
 	// viewport and scissor
 	vk::Viewport viewport(
 		.0f, .0f,
-		float(Renderer::Data.SwapchainExtent.width), float(Renderer::Data.SwapchainExtent.height),
+		float(Renderer::GetInstance().SwapchainExtent.width),
+		float(Renderer::GetInstance().SwapchainExtent.height),
 		.0f, 1.0f
 	);
 
-	vk::Rect2D scissor({ 0, 0 }, Renderer::Data.SwapchainExtent);
+	vk::Rect2D scissor({ 0, 0 }, Renderer::GetInstance().SwapchainExtent);
 
 	vk::PipelineViewportStateCreateInfo viewportInfo;
 	viewportInfo
@@ -99,14 +100,14 @@ bool Pipeline::Create(
 		}
 
 		vk::DescriptorSetLayoutCreateInfo info{ {}, bindings };
-		m_DescriptorSetLayout = Renderer::Data.Device.createDescriptorSetLayout(info);
+		m_DescriptorSetLayout = Renderer::GetInstance().Device.createDescriptorSetLayout(info);
 	}
 
 	// pipeline layout
 	vk::PipelineLayoutCreateInfo layoutInfo;
 	layoutInfo.setSetLayouts(m_DescriptorSetLayout);
 
-	m_Layout = Renderer::Data.Device.createPipelineLayout(layoutInfo);
+	m_Layout = Renderer::GetInstance().Device.createPipelineLayout(layoutInfo);
 	if (!m_Layout)
 	{
 		SPDLOG_ERROR("Pipeline layout creation failed!");
@@ -126,7 +127,7 @@ bool Pipeline::Create(
 	vk::GraphicsPipelineCreateInfo info;
 	info.setLayout(m_Layout)
 		.setStages(stages)
-		.setRenderPass(Renderer::Data.RenderPass)
+		.setRenderPass(Renderer::GetInstance().RenderPass)
 		.setSubpass(subpass)
 		.setPVertexInputState(&vertexInputInfo)
 		.setPInputAssemblyState(&assemblyInfo)
@@ -136,7 +137,7 @@ bool Pipeline::Create(
 		.setPViewportState(&viewportInfo)
 		.setPDepthStencilState(&depthStencilState);
 
-	m_Pipeline = Renderer::Data.Device.createGraphicsPipeline({}, info).value;
+	m_Pipeline = Renderer::GetInstance().Device.createGraphicsPipeline({}, info).value;
 	if (!m_Pipeline)
 	{
 		SPDLOG_ERROR("Pipeline creation failed!");
@@ -150,19 +151,19 @@ void Pipeline::Destroy()
 {
 	if (m_Layout)
 	{
-		Renderer::Data.Device.destroyPipelineLayout(m_Layout);
+		Renderer::GetInstance().Device.destroyPipelineLayout(m_Layout);
 		m_Layout = nullptr;
 	}
 
 	if (m_Pipeline)
 	{
-		Renderer::Data.Device.destroyPipeline(m_Pipeline);
+		Renderer::GetInstance().Device.destroyPipeline(m_Pipeline);
 		m_Pipeline = nullptr;
 	}
 
 	if (m_DescriptorSetLayout)
 	{
-		Renderer::Data.Device.destroyDescriptorSetLayout(m_DescriptorSetLayout);
+		Renderer::GetInstance().Device.destroyDescriptorSetLayout(m_DescriptorSetLayout);
 		m_DescriptorSetLayout = nullptr;
 	}
 }

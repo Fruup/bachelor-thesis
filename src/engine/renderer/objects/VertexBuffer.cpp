@@ -35,7 +35,7 @@ void VertexBuffer::Stage(void* source, size_t size, size_t offset)
 {
 	assert(size <= BufferCPU.Size);
 
-	void* target = Renderer::Data.Device.mapMemory(BufferCPU.Memory, offset, size);
+	void* target = Renderer::GetInstance().Device.mapMemory(BufferCPU.Memory, offset, size);
 	memcpy(target, source, size);
-	Renderer::Data.Device.unmapMemory(BufferCPU.Memory);
+	Renderer::GetInstance().Device.unmapMemory(BufferCPU.Memory);
 }

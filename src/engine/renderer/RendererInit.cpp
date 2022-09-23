@@ -6,22 +6,22 @@
 #include "engine/renderer/objects/Shader.h"
 #include "engine/renderer/objects/Command.h"
 
-bool Renderer::CreateImageViews()
+bool Renderer::CreateSwapChainImageViews()
 {
-	Data.SwapchainImageViews.resize(Data.SwapchainImages.size());
+	SwapchainImageViews.resize(SwapchainImages.size());
 
-	for (size_t i = 0; i < Data.SwapchainImages.size(); i++)
+	for (size_t i = 0; i < SwapchainImages.size(); i++)
 	{
 		vk::ImageViewCreateInfo info;
-		info.setImage(Data.SwapchainImages[i])
+		info.setImage(SwapchainImages[i])
 			.setViewType(vk::ImageViewType::e2D)
-			.setFormat(Data.SwapchainFormat)
+			.setFormat(SwapchainFormat)
 			.setSubresourceRange(vk::ImageSubresourceRange{
 				vk::ImageAspectFlagBits::eColor,
 				0, 1, 0, 1
 			});
 
-		Data.SwapchainImageViews[i] = Data.Device.createImageView(info);
+		SwapchainImageViews[i] = Device.createImageView(info);
 	}
 
 	return true;
@@ -29,7 +29,7 @@ bool Renderer::CreateImageViews()
 
 bool Renderer::CreateDepthBuffer()
 {
-	return Data.DepthBuffer.Create();
+	return DepthBuffer.Create();
 }
 
 bool Renderer::CreateRenderPass()
@@ -42,7 +42,7 @@ bool Renderer::CreateRenderPass()
 	// attachments
 	vk::AttachmentDescription screenAttachment;
 	screenAttachment
-		.setFormat(Data.SwapchainFormat)
+		.setFormat(SwapchainFormat)
 		.setSamples(vk::SampleCountFlagBits::e1)
 		.setLoadOp(vk::AttachmentLoadOp::eClear)
 		.setStoreOp(vk::AttachmentStoreOp::eStore)
@@ -208,8 +208,8 @@ bool Renderer::CreateRenderPass()
 			.setSubpasses(subpasses)
 			.setDependencies(dependencies);
 
-		Data.RenderPass = Data.Device.createRenderPass(info);
-		if (!Data.RenderPass)
+		RenderPass = Device.createRenderPass(info);
+		if (!RenderPass)
 		{
 			SPDLOG_ERROR("Failed to create render pass!");
 			return false;
@@ -221,8 +221,9 @@ bool Renderer::CreateRenderPass()
 
 bool Renderer::CreateDescriptorPool()
 {
-	std::array<vk::DescriptorPoolSize, 2> poolSize{
+	std::array<vk::DescriptorPoolSize, 3> poolSize{
 		vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 8 },
+		vk::DescriptorPoolSize{ vk::DescriptorType::eInputAttachment, 8 },
 		vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 32 },
 	};
 
@@ -230,8 +231,8 @@ bool Renderer::CreateDescriptorPool()
 	info.setPoolSizes(poolSize)
 		.setMaxSets(4);
 
-	Data.DescriptorPool = Data.Device.createDescriptorPool(info);
-	if (!Data.DescriptorPool)
+	DescriptorPool = Device.createDescriptorPool(info);
+	if (!DescriptorPool)
 	{
 		SPDLOG_ERROR("Descriptor pool creation failed!");
 		return false;
@@ -248,12 +249,17 @@ bool CreateFramebufferAttachment(
 	vk::DeviceMemory& memory
 )
 {
+	auto& Device = Renderer::GetInstance().Device;
+
 	// image
 	{
 		vk::ImageCreateInfo info;
-		info.setExtent({ Renderer::GetSwapchainExtent().width, Renderer::GetSwapchainExtent().height, 1 })
+		info.setExtent({
+				Renderer::GetInstance().GetSwapchainExtent().width,
+				Renderer::GetInstance().GetSwapchainExtent().height,
+				1 })
 			.setFormat(format)
-			.setQueueFamilyIndices(Renderer::Data.QueueIndices.GraphicsFamily.value())
+			.setQueueFamilyIndices(Renderer::GetInstance().QueueIndices.GraphicsFamily.value())
 			.setImageType(vk::ImageType::e2D)
 			.setInitialLayout(vk::ImageLayout::eUndefined)
 			.setMipLevels(1)
@@ -263,7 +269,7 @@ bool CreateFramebufferAttachment(
 			.setSharingMode(vk::SharingMode::eExclusive)
 			.setSamples(vk::SampleCountFlagBits::e1);
 
-		image = Renderer::Data.Device.createImage(info);
+		image = Renderer::GetInstance().Device.createImage(info);
 		if (!image)
 		{
 			SPDLOG_ERROR("Image creation failed!");
@@ -273,21 +279,21 @@ bool CreateFramebufferAttachment(
 
 	// memory
 	{
-		auto requirements = Renderer::Data.Device.getImageMemoryRequirements(image);
+		auto requirements = Device.getImageMemoryRequirements(image);
 
 		vk::MemoryAllocateInfo allocInfo{
 			requirements.size,
 			Renderer::FindMemoryType(requirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal)
 		};
 
-		memory = Renderer::Data.Device.allocateMemory(allocInfo);
+		memory = Device.allocateMemory(allocInfo);
 		if (!memory)
 		{
 			SPDLOG_ERROR("Memory creation failed!");
 			return false;
 		}
 
-		Renderer::Data.Device.bindImageMemory(image, memory, 0);
+		Device.bindImageMemory(image, memory, 0);
 	}
 
 	// create image view
@@ -304,7 +310,7 @@ bool CreateFramebufferAttachment(
 				0, 1, 0, 1
 			});
 
-		view = Renderer::Data.Device.createImageView(viewInfo);
+		view = Device.createImageView(viewInfo);
 		if (!view)
 		{
 			SPDLOG_ERROR("View creation failed!");
@@ -315,10 +321,10 @@ bool CreateFramebufferAttachment(
 	return true;
 }
 
-bool Renderer::CreateFrambuffers()
+bool Renderer::CreateFramebuffers()
 {
 	// create framebuffer images
-	{
+	/*{
 		CreateFramebufferAttachment(
 			vk::Format::eR32G32B32A32Sfloat,
 			vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment,
@@ -334,28 +340,28 @@ bool Renderer::CreateFrambuffers()
 			Data.NormalsAttachment.ImageView,
 			Data.NormalsAttachment.Memory
 		);
-	}
+	}*/
 
-	Data.SwapchainFramebuffers.resize(Data.SwapchainImages.size());
+	SwapchainFramebuffers.resize(SwapchainImages.size());
 
-	for (size_t i = 0; i < Data.SwapchainFramebuffers.size(); i++)
+	for (size_t i = 0; i < SwapchainFramebuffers.size(); i++)
 	{
 		std::vector<vk::ImageView> attachments = {
-			Data.SwapchainImageViews[i],
-			Data.DepthBuffer.GetView(),
-			Data.PositionsAttachment.ImageView,
-			Data.NormalsAttachment.ImageView,
+			SwapchainImageViews[i],
+			DepthBuffer.GetView(),
+			/*PositionsAttachment.ImageView,
+			NormalsAttachment.ImageView,*/
 		};
 
 		vk::FramebufferCreateInfo info;
 		info.setAttachments(attachments)
-			.setRenderPass(Data.RenderPass)
-			.setWidth(Data.SwapchainExtent.width)
-			.setHeight(Data.SwapchainExtent.height)
+			.setRenderPass(RenderPass)
+			.setWidth(SwapchainExtent.width)
+			.setHeight(SwapchainExtent.height)
 			.setLayers(1);
 
-		Data.SwapchainFramebuffers[i] = Data.Device.createFramebuffer(info);
-		if (!Data.SwapchainFramebuffers[i])
+		SwapchainFramebuffers[i] = Device.createFramebuffer(info);
+		if (!SwapchainFramebuffers[i])
 		{
 			SPDLOG_ERROR("Swapchain framebuffer creation failed!");
 			return false;
@@ -367,12 +373,12 @@ bool Renderer::CreateFrambuffers()
 
 bool Renderer::CreateCommandPool()
 {
-	Data.CommandPool = Data.Device.createCommandPool({
+	CommandPool = Device.createCommandPool({
 		vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-		Data.QueueIndices.GraphicsFamily.value()
+		QueueIndices.GraphicsFamily.value()
 	});
 
-	if (!Data.CommandPool)
+	if (!CommandPool)
 	{
 		SPDLOG_ERROR("Command pool creation failed!");
 		return false;
@@ -385,12 +391,12 @@ bool Renderer::CreateCommandBuffer()
 {
 	vk::CommandBufferAllocateInfo info;
 	info.setCommandBufferCount(1)
-		.setCommandPool(Data.CommandPool)
+		.setCommandPool(CommandPool)
 		.setLevel(vk::CommandBufferLevel::ePrimary);
 
-	Data.CommandBuffer = Data.Device.allocateCommandBuffers(info).front();
+	CommandBuffer = Device.allocateCommandBuffers(info).front();
 
-	if (!Data.CommandBuffer)
+	if (!CommandBuffer)
 	{
 		SPDLOG_ERROR("Failed to allocate primary command buffer!");
 		return false;
@@ -401,10 +407,10 @@ bool Renderer::CreateCommandBuffer()
 
 bool Renderer::CreateSemaphores()
 {
-	Data.ImageAvailableSemaphore = Data.Device.createSemaphore({});
-	Data.RenderFinishedSemaphore = Data.Device.createSemaphore({});
+	ImageAvailableSemaphore = Device.createSemaphore({});
+	RenderFinishedSemaphore = Device.createSemaphore({});
 
-	if (!Data.RenderFinishedSemaphore || !Data.ImageAvailableSemaphore)
+	if (!RenderFinishedSemaphore || !ImageAvailableSemaphore)
 	{
 		SPDLOG_ERROR("Semaphore creation failed!");
 		return false;
@@ -417,7 +423,7 @@ bool Renderer::CreateSemaphores()
 
 bool Renderer::InitVulkan()
 {
-	Data.DeviceExtensions = {
+	DeviceExtensions = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 	};
 
@@ -425,10 +431,10 @@ bool Renderer::InitVulkan()
 
 	// create window surface
 	VkSurfaceKHR surface;
-	glfwCreateWindowSurface(Data.Instance, Data.Window, nullptr, &surface);
-	Data.Surface = surface;
+	glfwCreateWindowSurface(Instance, Window, nullptr, &surface);
+	Surface = surface;
 
-	if (!Data.Surface)
+	if (!Surface)
 	{
 		SPDLOG_ERROR("Failed to create window surface!");
 		return false;
@@ -438,11 +444,11 @@ bool Renderer::InitVulkan()
 	if (!CreateLogicalDevice()) return false;
 	if (!Command::Init()) return false;
 	if (!CreateSwapChain()) return false;
-	if (!CreateImageViews()) return false;
+	if (!CreateSwapChainImageViews()) return false;
 	if (!CreateDepthBuffer()) return false;
 	if (!CreateRenderPass()) return false;
 	if (!CreateDescriptorPool()) return false;
-	if (!CreateFrambuffers()) return false;
+	if (!CreateFramebuffers()) return false;
 	if (!CreateCommandPool()) return false;
 	if (!CreateCommandBuffer()) return false;
 	if (!CreateSemaphores()) return false;
@@ -452,27 +458,19 @@ bool Renderer::InitVulkan()
 
 void Renderer::ExitVulkan()
 {
-	Data.Device.destroyImage(Data.PositionsAttachment.Image);
-	Data.Device.destroyImageView(Data.PositionsAttachment.ImageView);
-	Data.Device.freeMemory(Data.PositionsAttachment.Memory);
-
-	Data.Device.destroyImage(Data.NormalsAttachment.Image);
-	Data.Device.destroyImageView(Data.NormalsAttachment.ImageView);
-	Data.Device.freeMemory(Data.NormalsAttachment.Memory);
-
-	Data.Device.destroySemaphore(Data.RenderFinishedSemaphore);
-	Data.Device.destroySemaphore(Data.ImageAvailableSemaphore);
-	Data.Device.destroyCommandPool(Data.CommandPool);
-	Data.Device.destroyDescriptorPool(Data.DescriptorPool);
-	for (auto& framebuffer : Data.SwapchainFramebuffers)
-		Data.Device.destroyFramebuffer(framebuffer);
-	Data.DepthBuffer.Destroy();
-	Data.Device.destroyRenderPass(Data.RenderPass);
-	for (auto& view : Data.SwapchainImageViews)
-		Data.Device.destroyImageView(view);
+	Device.destroySemaphore(RenderFinishedSemaphore);
+	Device.destroySemaphore(ImageAvailableSemaphore);
+	Device.destroyCommandPool(CommandPool);
+	Device.destroyDescriptorPool(DescriptorPool);
+	for (auto& framebuffer : SwapchainFramebuffers)
+		Device.destroyFramebuffer(framebuffer);
+	DepthBuffer.Destroy();
+	Device.destroyRenderPass(RenderPass);
+	for (auto& view : SwapchainImageViews)
+		Device.destroyImageView(view);
 	Command::Exit();
-	Data.Device.destroySwapchainKHR(Data.Swapchain);
-	Data.Device.destroy();
-	Data.Instance.destroySurfaceKHR(Data.Surface);
-	Data.Instance.destroy();
+	Device.destroySwapchainKHR(Swapchain);
+	Device.destroy();
+	Instance.destroySurfaceKHR(Surface);
+	Instance.destroy();
 }
