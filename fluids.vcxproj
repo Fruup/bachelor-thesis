@@ -82,6 +82,7 @@
       <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\include;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
+      <OpenMPSupport>true</OpenMPSupport>
       <LanguageStandard>stdcpplatest</LanguageStandard>
     </ClCompile>
     <Link>
@@ -100,6 +101,7 @@
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
+      <OpenMPSupport>true</OpenMPSupport>
       <MinimalRebuild>false</MinimalRebuild>
       <StringPooling>true</StringPooling>
       <LanguageStandard>stdcpplatest</LanguageStandard>
@@ -121,6 +123,7 @@
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
+      <OpenMPSupport>true</OpenMPSupport>
       <MinimalRebuild>false</MinimalRebuild>
       <StringPooling>true</StringPooling>
       <LanguageStandard>stdcpplatest</LanguageStandard>
@@ -134,11 +137,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\app\Dataset.h" />
+    <ClInclude Include="src\app\renderer\AdvancedFluidRenderer.h" />
     <ClInclude Include="src\app\renderer\DepthFluidRenderer.h" />
+    <ClInclude Include="src\app\renderer\FluidRenderer.h" />
     <ClInclude Include="src\app\renderer\PointFluidRenderer.h" />
     <ClInclude Include="src\app\renderer\_AdvancedFluidRenderer.h" />
-    <ClInclude Include="src\app\renderer\FluidRenderer.h" />
-    <ClInclude Include="src\app\renderer\AdvancedFluidRenderer.h" />
     <ClInclude Include="src\engine\Application.h" />
     <ClInclude Include="src\engine\Engine.h" />
     <ClInclude Include="src\engine\assets\AssetHandle.h" />
@@ -209,6 +212,7 @@
     <ClCompile Include="src\engine\renderer\objects\VertexBuffer.cpp" />
     <ClCompile Include="src\engine\ui\ImGuiLayer.cpp" />
     <ClCompile Include="src\engine\utils\ImageCPU.cpp" />
+    <ClCompile Include="src\engine\utils\PerformanceTimer.cpp" />
     <ClCompile Include="src\engine\utils\Statistics.cpp" />
     <ClCompile Include="src\engine\utils\Utils.cpp" />
     <ClCompile Include="src\main.cpp" />

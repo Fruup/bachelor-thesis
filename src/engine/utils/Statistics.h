@@ -6,14 +6,6 @@
 
 class PerformanceTimer;
 
-// https://www.c-plusplus.net/forum/topic/348084/compile-time-string-hash/3
-constexpr uint32_t fnv32(const char* s)
-{
-	uint32_t hash{ 2166136261u };
-	while (*s) hash = 16777619u * (hash ^ static_cast<uint32_t>(*s++));
-	return hash;
-}
-
 class Statistics
 {
 public:
@@ -31,12 +23,6 @@ public:
 		float GetAverage() const;
 		float GetMin() const;
 		float GetMax() const;
-	};
-	
-	struct Timer
-	{
-		char Name[64];
-		char Value[64];
 	};
 
 public:
@@ -71,14 +57,10 @@ public:
 
 	void CountUp(size_t hash, size_t amount = 1);
 
-	void SetTimer(const char* name, const char* value);
-
 private:
 	std::unordered_map<size_t, Entry> m_Entries;
 	std::unordered_map<size_t, size_t> m_Counters;
 	std::unordered_map<size_t, std::string> m_Names;
-
-	std::unordered_map<const char*, Timer> m_Timers;
 
 	std::string m_StatsName;
 	bool m_Open = true;

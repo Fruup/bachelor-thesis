@@ -25,6 +25,8 @@ workspace "fluids"
 	targetdir "build/%{cfg.buildcfg}/%{prj.name}"
 	objdir "build/obj/%{prj.name}"
 
+	openmp "On"
+
 	filter "configurations:Debug"
 		links(VULKAN_LIBS_DEBUG)
 

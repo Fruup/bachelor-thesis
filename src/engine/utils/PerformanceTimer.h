@@ -1,18 +1,14 @@
 #pragma once
 
-#include <spdlog/spdlog.h>
-#include <chrono>
-
-#include <engine/utils/Statistics.h>
-
 class PerformanceTimer
 {
-	using Clock = std::chrono::high_resolution_clock;
-	using TimePoint = std::chrono::time_point<Clock>;
-	using DurationUnit = std::chrono::milliseconds;
 public:
-	PerformanceTimer(const char* name) :
-		Name(name)
+	using Clock = std::chrono::high_resolution_clock;
+	using TimePoint = std::chrono::high_resolution_clock::time_point;
+	using Duration = std::chrono::high_resolution_clock::duration;
+
+public:
+	PerformanceTimer(const char* name) : Name(name)
 	{
 		Start = Clock::now();
 	}
@@ -20,32 +16,44 @@ public:
 	~PerformanceTimer()
 	{
 		TimePoint end = Clock::now();
-		auto durationCount = (end - Start).count();
-
-		double duration = double(durationCount);
-		const char* unit = "ns";
-
-		if (durationCount >= 1000000)
-		{
-			auto natural = durationCount / 1000000;
-			duration = double(natural) + 1e-3 * double(durationCount / 1000 - natural);
-			unit = "ms";
-		}
-		else if (durationCount >= 1000)
-		{
-			auto natural = durationCount / 1000;
-			duration = double(natural) + 1e-3 * double(durationCount - natural);
-			unit = "us";
-		}
-
-		char result[128];
-		sprintf_s(result, "%.3f %s", duration, unit);
-
-		GlobalStatistics.SetTimer(Name, result);
-
-		// spdlog::info("PERFORMANCE ({}): {:.2f} {}", Name, duration, unit);
+		Storage.Timers[Name] = end - Start;
 	}
 
-	TimePoint Start;
 	const char* Name;
+	TimePoint Start;
+
+public:
+	static struct _Storage
+	{
+		std::unordered_map<const char*, Duration> Timers;
+	} Storage;
+
+	static void PrintAll()
+	{
+		for (const auto& [name, duration] : Storage.Timers)
+			SPDLOG_INFO("Timer '{}': {}ms", name, double(duration.count()) / double(1000000));
+	}
+
+	static std::string Stringify(const Duration& duration)
+	{
+		const auto c = duration.count();
+		std::stringstream s;
+
+		if (c > 1000000000)
+			s << double(c) / double(1000000000) << "s";
+		else if (c > 1000000)
+			s << double(c) / double(1000000) << "ms";
+		else if (c > 1000)
+			s << double(c) / double(1000) << "µs";
+		else
+			s << c << "ns";
+
+		return s.str();
+	}
 };
+
+#define PROFILE_SCOPE_LINE2(name, line) PerformanceTimer timer_##line(name)
+#define PROFILE_SCOPE_LINE(name, line) PROFILE_SCOPE_LINE2(name, line)
+
+#define PROFILE_SCOPE(name) PROFILE_SCOPE_LINE(name, __LINE__)
+#define PROFILE_FUNCTION() PROFILE_SCOPE(__FUNCSIG__)

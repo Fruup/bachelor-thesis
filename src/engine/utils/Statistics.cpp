@@ -129,28 +129,12 @@ void Statistics::ImGuiRender()
 	ImGui::Begin("Timers");
 	
 	{
-		for (const auto& [k, timer] : m_Timers)
+		for (const auto& [name, duration] : PerformanceTimer::Storage.Timers)
 		{
-			ImGui::Text("%s:", timer.Name);
-			ImGui::Text("  %s", timer.Value);
+			ImGui::Text("%s:", name);
+			ImGui::Text("  %s", PerformanceTimer::Stringify(duration));
 		}
 	}
 
 	ImGui::End();
-}
-
-void Statistics::SetTimer(const char* name, const char* value)
-{
-	auto it = m_Timers.find(name);
-
-	if (it == m_Timers.end())
-	{
-		auto& timer = m_Timers[name];
-		strcpy_s(timer.Name, name);
-		strcpy_s(timer.Value, value);
-	}
-	else
-	{
-		strcpy_s(it->second.Value, value);
-	}
 }
