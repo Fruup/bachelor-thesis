@@ -1,7 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
+# Visual Studio Version 17
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fluids", "fluids.vcxproj", "{AC7FB1FD-9821-DCD3-81DC-EF276D1D6324}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "partio", "vendor\partio\partio.vcxproj", "{B4923C14-A034-67EA-89EF-7A3E7530EE3A}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "zlib", "vendor\zlib\zlib.vcxproj", "{16CFA17C-0206-A30D-ABF2-881097081F0F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -16,6 +20,18 @@ Global
 		{AC7FB1FD-9821-DCD3-81DC-EF276D1D6324}.Production|Win64.Build.0 = Production Win64|x64
 		{AC7FB1FD-9821-DCD3-81DC-EF276D1D6324}.Release|Win64.ActiveCfg = Release Win64|x64
 		{AC7FB1FD-9821-DCD3-81DC-EF276D1D6324}.Release|Win64.Build.0 = Release Win64|x64
+		{B4923C14-A034-67EA-89EF-7A3E7530EE3A}.Debug|Win64.ActiveCfg = Debug Win64|x64
+		{B4923C14-A034-67EA-89EF-7A3E7530EE3A}.Debug|Win64.Build.0 = Debug Win64|x64
+		{B4923C14-A034-67EA-89EF-7A3E7530EE3A}.Production|Win64.ActiveCfg = Production Win64|x64
+		{B4923C14-A034-67EA-89EF-7A3E7530EE3A}.Production|Win64.Build.0 = Production Win64|x64
+		{B4923C14-A034-67EA-89EF-7A3E7530EE3A}.Release|Win64.ActiveCfg = Release Win64|x64
+		{B4923C14-A034-67EA-89EF-7A3E7530EE3A}.Release|Win64.Build.0 = Release Win64|x64
+		{16CFA17C-0206-A30D-ABF2-881097081F0F}.Debug|Win64.ActiveCfg = Debug Win64|x64
+		{16CFA17C-0206-A30D-ABF2-881097081F0F}.Debug|Win64.Build.0 = Debug Win64|x64
+		{16CFA17C-0206-A30D-ABF2-881097081F0F}.Production|Win64.ActiveCfg = Production Win64|x64
+		{16CFA17C-0206-A30D-ABF2-881097081F0F}.Production|Win64.Build.0 = Production Win64|x64
+		{16CFA17C-0206-A30D-ABF2-881097081F0F}.Release|Win64.ActiveCfg = Release Win64|x64
+		{16CFA17C-0206-A30D-ABF2-881097081F0F}.Release|Win64.Build.0 = Release Win64|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

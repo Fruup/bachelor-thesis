@@ -148,7 +148,7 @@ Renderer::Renderer():
 bool Renderer::CreateInstance()
 {
 	// Use validation layers if this is a debug build
-#if DEBUG
+#if not PRODUCTION
 	ValidationLayers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
 

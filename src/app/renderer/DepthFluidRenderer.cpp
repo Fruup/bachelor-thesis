@@ -3,6 +3,7 @@
 #include "DepthFluidRenderer.h"
 
 #include <engine/renderer/objects/Command.h>
+#include <engine/utils/PerformanceTimer.h>
 
 #include <fstream>
 
@@ -83,6 +84,8 @@ void DepthFluidRenderer::VExit()
 	CompositionPass.FragmentShader.Destroy();
 	CompositionPass.Pipeline.Destroy();
 	CompositionPass.UniformBuffer.Destroy();
+
+	DepthBufferCPU.Destroy();
 }
 
 void DepthFluidRenderer::Render()
@@ -92,8 +95,7 @@ void DepthFluidRenderer::Render()
 
 	UpdateUniforms();
 
-	if (!Paused)
-		CollectRenderData();
+	CollectRenderData();
 
 	// 0. pass: depth
 	{
@@ -176,16 +178,7 @@ void DepthFluidRenderer::End()
 
 	Command::EndOneTimeCommand(cmd);
 
-	{
-		auto size = 4 * SwapchainExtent.width * SwapchainExtent.height;
-		auto data = Device.mapMemory(DepthBufferCPU.Memory, 0, size);
-
-		std::ofstream file("DEPTHBUFFER", std::ios::trunc | std::ios::binary);
-		file.write((char*)data, size);
-		file.close();
-
-		Device.unmapMemory(DepthBufferCPU.Memory);
-	}
+	ProcessDepthBuffer();
 }
 
 bool DepthFluidRenderer::CreateRenderPass()
@@ -219,41 +212,38 @@ bool DepthFluidRenderer::CreateRenderPass()
 
 	// subpasses
 
-	vk::SubpassDescription depthSubpass;
-	{
-		vk::AttachmentReference depth(depthAttachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+	// 0. pass: depth
+	vk::AttachmentReference depthSubpassDepth(depthAttachmentIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
-		depthSubpass
-			.setPDepthStencilAttachment(&depth)
-			.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
-	}
+	vk::SubpassDescription depthSubpass;
+	depthSubpass
+		.setPDepthStencilAttachment(&depthSubpassDepth)
+		.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
+
+	// 1. pass: compose
+	vk::AttachmentReference compositionSubpassInput(
+		depthAttachmentIndex,
+		vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal);
+	vk::AttachmentReference compositionSubpassColor[] = {
+		vk::AttachmentReference(screenAttachmentIndex, vk::ImageLayout::eColorAttachmentOptimal),
+	};
 
 	vk::SubpassDescription compositionSubpass;
-	{
-		vk::AttachmentReference input(
-			depthAttachmentIndex,
-			vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal);
+	compositionSubpass
+		.setInputAttachments(compositionSubpassInput)
+		.setColorAttachments(compositionSubpassColor)
+		.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
 
-		vk::AttachmentReference color[] = {
-			vk::AttachmentReference(screenAttachmentIndex, vk::ImageLayout::eColorAttachmentOptimal),
-		};
-
-		compositionSubpass
-			.setInputAttachments(input)
-			.setColorAttachments(color)
-			.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
-	}
+	// 2. pass: imgui
+	vk::AttachmentReference color[] = {
+		vk::AttachmentReference(screenAttachmentIndex, vk::ImageLayout::eColorAttachmentOptimal),
+	};
 
 	vk::SubpassDescription imguiSubpass;
-	{
-		vk::AttachmentReference color[] = {
-			vk::AttachmentReference(screenAttachmentIndex, vk::ImageLayout::eColorAttachmentOptimal),
-		};
+	imguiSubpass
+		.setColorAttachments(color)
+		.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
 
-		imguiSubpass
-			.setColorAttachments(color)
-			.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
-	}
 
 	DepthPass.Index = 0;
 	CompositionPass.Index = 1;
@@ -638,6 +628,110 @@ void DepthFluidRenderer::RenderUI()
 	ImGui::Begin("DepthFluidRenderer");
 
 	ImGui::Checkbox("Paused", &Paused);
+	ImGui::SliderInt("Frame", &CurrentFrame, 0, Dataset.Snapshots.size() - 1);
 
 	ImGui::End();
+}
+
+void DepthFluidRenderer::WriteDepthBufferCPUToFile()
+{
+	auto size = 4 * SwapchainExtent.width * SwapchainExtent.height;
+	auto data = Device.mapMemory(DepthBufferCPU.Memory, 0, size);
+
+	std::ofstream file("DEPTHBUFFER", std::ios::trunc | std::ios::binary);
+	file.write((char*)data, size);
+	file.close();
+
+	Device.unmapMemory(DepthBufferCPU.Memory);
+}
+
+template <typename T, size_t stack_capacity>
+class StackAllocator : public std::allocator<T>
+{
+public:
+};
+
+float DepthFluidRenderer::GetDensity(const glm::vec3 viewPosition)
+{
+	// get world space position
+	const auto _position = glm::vec3(Camera.GetInvView() * glm::vec4(viewPosition, 1));
+	float position[3] = { _position.x, _position.y, _position.z };
+
+	constexpr uint32_t MAX_POINTS = 32;
+
+	float distancesSquared[MAX_POINTS];
+	Partio::ParticleIndex points[MAX_POINTS];
+	float finalRadius;
+
+	int n = Dataset.Files[CurrentFrame]->findNPoints(
+		position,
+		MAX_POINTS,
+		//SPHERE_RADIUS,
+		.5f,
+		points,
+		distancesSquared,
+		&finalRadius);
+
+	if (n > 0)
+		SPDLOG_INFO("Found {} points in neighbourhood!", n);
+
+	return float(n) / float(MAX_POINTS);
+}
+
+void DepthFluidRenderer::ProcessDepthBuffer()
+{
+	PROFILE_FUNCTION();
+
+	float* depth = reinterpret_cast<float*>(
+		Device.mapMemory(DepthBufferCPU.Memory, 0, DepthBufferCPU.Size));
+
+	const float halfInverseWidth = 2.0f / float(SwapchainExtent.width);
+	const float halfInverseHeight = 2.0f / float(SwapchainExtent.height);
+
+#define MAX_STEPS 16
+#define STEP_LENGTH 0.05f
+#define ISO_DENSITY 0.5f
+
+//#pragma omp parallel for
+	for (int x = 0; x < SwapchainExtent.width; x++)
+	{
+//#pragma omp parallel for
+		for (int y = 0; y < SwapchainExtent.height; y++)
+		{
+			float clipZ = depth[y * SwapchainExtent.width + x];
+			if (clipZ == 1.0f) continue;
+
+			const glm::vec3 clipPosition{
+				float(x) * halfInverseWidth - 1.0f,
+				float(y) * halfInverseHeight - 1.0f,
+				clipZ,
+			};
+
+			// compute ray
+			glm::vec4 positionH = Camera.GetInvProjection() * glm::vec4(clipPosition, 1.0f);
+			glm::vec3 position = glm::vec3(positionH) / positionH.w;
+
+			glm::vec4 directionH = Camera.GetInvProjection() * glm::vec4(clipPosition.x, clipPosition.y, Camera.Near, 1.0f);
+			glm::vec3 direction = STEP_LENGTH * glm::normalize(glm::vec3(directionH));
+
+			// ray march
+			for (size_t i = 0; i < MAX_STEPS; i++)
+			{
+				// step
+				position += direction;
+
+				// evaluate density
+				float density = GetDensity(position);
+
+				if (density >= ISO_DENSITY)
+				{
+					// position found, write to buffer
+					depth[y * SwapchainExtent.width + x] = position.z;
+					i = MAX_STEPS;
+				}
+			}
+		}
+	}
+
+	Device.unmapMemory(DepthBufferCPU.Memory);
 }

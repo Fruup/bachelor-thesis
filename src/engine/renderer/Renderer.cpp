@@ -288,8 +288,8 @@ void Renderer::End()
 			.setCommandBuffers(CommandBuffer)
 			.setSignalSemaphores(RenderFinishedSemaphore);
 
-		Renderer::GetInstance().GraphicsQueue.submit(info);
-		Renderer::GetInstance().GraphicsQueue.waitIdle();
+		GraphicsQueue.submit(info);
+		GraphicsQueue.waitIdle();
 	}
 
 	// PRESENT!

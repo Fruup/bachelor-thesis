@@ -79,16 +79,17 @@
       <PrecompiledHeaderFile>engine/hzpch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>DEBUG;SOLUTION_DIRECTORY=".";%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\include;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\src;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <OpenMPSupport>true</OpenMPSupport>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <ExternalWarningLevel>Level3</ExternalWarningLevel>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>E:\dev\VulkanSDK\1.3.224.1\Lib\glslangd.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shadercd.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_utild.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_combinedd.lib;vendor\glfw\glfw3.lib;vendor\yaml-cpp\lib\Debug\yaml-cpp.lib;vendor\imgui\bin\Debug\ImGui.lib;vendor\partio\lib\Debug\partio.lib;vendor\zlib\lib\Debug\zlib.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vendor\glfw\glfw3.lib;vendor\yaml-cpp\lib\Debug\yaml-cpp.lib;vendor\imgui\bin\Debug\ImGui.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\vulkan-1.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\glslangd.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shadercd.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_utild.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_combinedd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release Win64|x64'">
@@ -97,20 +98,23 @@
       <PrecompiledHeaderFile>engine/hzpch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>NDEBUG;RELEASE;SOLUTION_DIRECTORY=".";%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\include;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\src;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <OpenMPSupport>true</OpenMPSupport>
       <MinimalRebuild>false</MinimalRebuild>
       <StringPooling>true</StringPooling>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <ExternalWarningLevel>Level3</ExternalWarningLevel>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>glslang.lib;shaderc.lib;shaderc_util.lib;shaderc_combined.lib;vendor\glfw\glfw3.lib;vendor\yaml-cpp\lib\Release\yaml-cpp.lib;vendor\imgui\bin\Release\ImGui.lib;vendor\partio\lib\Release\partio.lib;vendor\zlib\lib\Release\zlib.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vendor\glfw\glfw3.lib;vendor\yaml-cpp\lib\Release\yaml-cpp.lib;vendor\imgui\bin\Release\ImGui.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\vulkan-1.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\glslang.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_util.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_combined.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Production Win64|x64'">
@@ -119,20 +123,21 @@
       <PrecompiledHeaderFile>engine/hzpch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>NDEBUG;PRODUCTION;SOLUTION_DIRECTORY=".";%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\include;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\src;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <OpenMPSupport>true</OpenMPSupport>
       <MinimalRebuild>false</MinimalRebuild>
       <StringPooling>true</StringPooling>
-      <LanguageStandard>stdcpplatest</LanguageStandard>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <ExternalWarningLevel>Level3</ExternalWarningLevel>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>glslang.lib;shaderc.lib;shaderc_util.lib;shaderc_combined.lib;vendor\glfw\glfw3.lib;vendor\yaml-cpp\lib\Production\yaml-cpp.lib;vendor\imgui\bin\Production\ImGui.lib;vendor\partio\lib\Production\partio.lib;vendor\zlib\lib\Production\zlib.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>vendor\glfw\glfw3.lib;vendor\yaml-cpp\lib\Production\yaml-cpp.lib;vendor\imgui\bin\Production\ImGui.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\vulkan-1.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\glslang.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_util.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_combined.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -218,6 +223,11 @@
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="vendor\imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="vendor\imgui\backends\imgui_impl_vulkan.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="vendor\partio\partio.vcxproj">
+      <Project>{B4923C14-A034-67EA-89EF-7A3E7530EE3A}</Project>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="core">
+      <UniqueIdentifier>{4E40957C-3A77-960D-E363-7C10CF79120F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="io">
+      <UniqueIdentifier>{3D785900-2904-880B-92B2-880B7E5D880B}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Partio.h" />
+    <ClInclude Include="src\PartioAttribute.h" />
+    <ClInclude Include="src\PartioConfig.h" />
+    <ClInclude Include="src\PartioIterator.h" />
+    <ClInclude Include="src\PartioVec3.h" />
+    <ClInclude Include="src\core\KdTree.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\Mutex.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\ParticleCaching.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\ParticleHeaders.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\ParticleSimple.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\core\ParticleSimpleInterleave.h">
+      <Filter>core</Filter>
+    </ClInclude>
+    <ClInclude Include="src\io\PartioEndian.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="src\io\ZIP.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="src\io\half2float.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="src\io\pdb.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="src\io\readers.h">
+      <Filter>io</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\core\Particle.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\ParticleCaching.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\ParticleHeaders.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\ParticleSimple.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\core\ParticleSimpleInterleave.cpp">
+      <Filter>core</Filter>
+    </ClCompile>
+    <ClCompile Include="src\io\BGEO.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="src\io\BIN.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="src\io\GEO.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="src\io\MC.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="src\io\PDA.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="src\io\PDB.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="src\io\PDC.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="src\io\PRT.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="src\io\PTC.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="src\io\PTS.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="src\io\ParticleIO.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="src\io\RIB.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+    <ClCompile Include="src\io\ZIP.cpp">
+      <Filter>io</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\CMakeLists.txt" />
+  </ItemGroup>
+</Project>

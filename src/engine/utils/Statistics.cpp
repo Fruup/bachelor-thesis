@@ -132,7 +132,7 @@ void Statistics::ImGuiRender()
 		for (const auto& [name, duration] : PerformanceTimer::Storage.Timers)
 		{
 			ImGui::Text("%s:", name);
-			ImGui::Text("  %s", PerformanceTimer::Stringify(duration));
+			ImGui::Text("  %s", PerformanceTimer::Stringify(duration).c_str());
 		}
 	}
 

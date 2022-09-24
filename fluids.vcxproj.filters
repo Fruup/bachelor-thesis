@@ -269,6 +269,9 @@
     <ClCompile Include="src\engine\utils\ImageCPU.cpp">
       <Filter>src\engine\utils</Filter>
     </ClCompile>
+    <ClCompile Include="src\engine\utils\PerformanceTimer.cpp">
+      <Filter>src\engine\utils</Filter>
+    </ClCompile>
     <ClCompile Include="src\engine\utils\Statistics.cpp">
       <Filter>src\engine\utils</Filter>
     </ClCompile>
@@ -283,9 +286,6 @@
     </ClCompile>
     <ClCompile Include="vendor\imgui\backends\imgui_impl_vulkan.cpp">
       <Filter>vendor\imgui\backends</Filter>
-    </ClCompile>
-    <ClCompile Include="src\engine\utils\PerformanceTimer.cpp">
-      <Filter>src\engine\utils</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

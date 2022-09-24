@@ -16,10 +16,11 @@ public:
 
 	void ComputeMatrices();
 
-	auto GetProjection() const { return Projection; }
-	auto GetView() const { return View; }
-	auto GetInvView() const { return InvView; }
-	auto GetProjectionView() const { return ProjectionView; }
+	const auto& GetProjection() const { return Projection; }
+	const auto& GetView() const { return View; }
+	const auto& GetInvView() const { return InvView; }
+	const auto& GetInvProjection() const { return InvProjection; }
+	const auto& GetProjectionView() const { return ProjectionView; }
 
 	float GetNear() const { return Near; }
 	float GetFar() const { return Far; }
@@ -29,7 +30,7 @@ public:
 	float Near, Far;
 	float FOV, Aspect;
 
-	glm::mat4 Projection, View, InvView, ProjectionView;
+	glm::mat4 Projection, View, InvView, InvProjection, ProjectionView;
 };
 
 class EditorCameraController3D

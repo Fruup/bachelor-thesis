@@ -48,6 +48,11 @@ private:
 	void UpdateDescriptorSetComposition();
 	void CollectRenderData();
 
+	void WriteDepthBufferCPUToFile();
+	void ProcessDepthBuffer();
+
+	float GetDensity(const glm::vec3 viewPosition);
+
 	void RenderUI();
 
 private:
@@ -96,5 +101,5 @@ private:
 
 	Buffer DepthBufferCPU;
 
-	bool Paused = false;
+	bool Paused = true;
 };

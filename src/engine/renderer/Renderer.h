@@ -134,7 +134,7 @@ public:
 	EditorCameraController3D CameraController;
 
 	// ImGui
-	uint32_t ImGuiSubpass = 99;
+	uint32_t ImGuiSubpass = uint32_t(-1);
 
 protected:
 	Renderer();

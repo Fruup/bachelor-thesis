@@ -14,6 +14,7 @@ Camera3D::Camera3D(float fov, float aspect, float near, float far) :
 	Aspect(aspect)
 {
 	Projection = glm::perspectiveLH(fov, aspect, near, far);
+	InvProjection = glm::inverse(Projection);
 }
 
 void Camera3D::ComputeMatrices()

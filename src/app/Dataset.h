@@ -1,6 +1,6 @@
 #pragma once
 
-#include <partio/Partio.h>
+#include <Partio.h>
 
 #include <engine/assets/AssetPath.h>
 
@@ -40,8 +40,7 @@ public:
 
 			ReadFile(File);
 
-			File->release();
-			File = nullptr;
+			Files.push_back(File);
 
 			++i;
 		}
@@ -57,10 +56,15 @@ public:
 			File = nullptr;
 		}
 
+		for (const auto& file : Files)
+			file->release();
+		Files.clear();
+
 		Snapshots.clear();
 	}
 
 	std::vector<Snapshot> Snapshots;
+	std::vector<Partio::ParticlesDataMutable*> Files;
 	Partio::ParticlesDataMutable* File = nullptr;
 
 private:
@@ -68,7 +72,7 @@ private:
 	{
 		Partio::ParticleAttribute attrPosition, attrVelocity;
 
-		// file->sort();
+		file->sort();
 
 		file->attributeInfo("position", attrPosition);
 
