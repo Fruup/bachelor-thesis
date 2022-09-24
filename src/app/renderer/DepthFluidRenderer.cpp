@@ -1,15 +1,15 @@
 #include "engine/hzpch.h"
 
 #include "DepthFluidRenderer.h"
+#include "app/Kernel.h"
 
+#include <engine/input/Input.h>
 #include <engine/renderer/objects/Command.h>
 #include <engine/utils/PerformanceTimer.h>
 
 #include <fstream>
 
 // ------------------------------------------------------------------------
-
-const float SPHERE_RADIUS = .1f;
 
 const uint32_t MAX_PARTICLES = 10000;
 const uint32_t MAX_VERTICES = MAX_PARTICLES * 6;
@@ -91,7 +91,7 @@ void DepthFluidRenderer::VExit()
 void DepthFluidRenderer::Render()
 {
 	if (!Paused)
-		CurrentFrame = (CurrentFrame + 1) % Dataset.Snapshots.size();
+		CurrentFrame = (CurrentFrame + 1) % Dataset->Snapshots.size();
 
 	UpdateUniforms();
 
@@ -140,9 +140,6 @@ void DepthFluidRenderer::Render()
 
 		CommandBuffer.draw(3, 1, 0, 0);
 	}
-
-	if (!Paused)
-		CurrentFrame++;
 
 	RenderUI();
 }
@@ -491,7 +488,7 @@ void DepthFluidRenderer::UpdateUniforms()
 	{
 		DepthPass.Uniforms.Projection = Camera.GetProjection();
 		DepthPass.Uniforms.View = Camera.GetView();
-		DepthPass.Uniforms.Radius = SPHERE_RADIUS;
+		DepthPass.Uniforms.Radius = Dataset->ParticleRadius;
 
 		// copy
 		DepthPass.UniformBuffer.Map(&DepthPass.Uniforms, sizeof(DepthPass.Uniforms));
@@ -593,16 +590,16 @@ void DepthFluidRenderer::CollectRenderData()
 
 	const glm::vec3 up(0, 1, 0);
 
-	for (auto& particle : Dataset.Snapshots[CurrentFrame])
+	for (auto& particle : Dataset->Snapshots[CurrentFrame])
 	{
 		glm::vec3 z = CameraController.System[2];
 		glm::vec3 x = glm::normalize(glm::cross(up, z));
 		glm::vec3 y = glm::normalize(glm::cross(x, z));
 
-		glm::vec3 topLeft = particle.Position + SPHERE_RADIUS * (-x + y);
-		glm::vec3 topRight = particle.Position + SPHERE_RADIUS * (+x + y);
-		glm::vec3 bottomLeft = particle.Position + SPHERE_RADIUS * (-x - y);
-		glm::vec3 bottomRight = particle.Position + SPHERE_RADIUS * (+x - y);
+		glm::vec3 topLeft = particle.Position + Dataset->ParticleRadius * (-x + y);
+		glm::vec3 topRight = particle.Position + Dataset->ParticleRadius * (+x + y);
+		glm::vec3 bottomLeft = particle.Position + Dataset->ParticleRadius * (-x - y);
+		glm::vec3 bottomRight = particle.Position + Dataset->ParticleRadius * (+x - y);
 
 		target[DepthPass.NumVertices++] = { topLeft, { 0, 0 } };
 		target[DepthPass.NumVertices++] = { bottomLeft, { 0, 1 } };
@@ -628,7 +625,32 @@ void DepthFluidRenderer::RenderUI()
 	ImGui::Begin("DepthFluidRenderer");
 
 	ImGui::Checkbox("Paused", &Paused);
-	ImGui::SliderInt("Frame", &CurrentFrame, 0, Dataset.Snapshots.size() - 1);
+	ImGui::SliderInt("Frame", &CurrentFrame, 0, Dataset->Snapshots.size() - 1);
+
+	{
+		const float DISTANCE_Z = 5.0f;
+
+		glm::vec2 resolution{ SwapchainExtent.width, SwapchainExtent.height };
+		auto clip = 2.0f * Input::GetCursorPosition().operator glm::vec2() / resolution - 1.0f;
+
+		auto viewH = Camera.GetInvProjection() * glm::vec4(clip, 0, 1);
+		auto view = glm::vec3(viewH) / (viewH.w * DISTANCE_Z);
+		
+		auto world = glm::vec3(Camera.GetInvView() * glm::vec4(view, 1));
+
+		auto neighbors = Dataset->GetNeighbors(world, CurrentFrame);
+
+		float density = 0.0f;
+		for (auto& i : neighbors)
+		{
+			CubicSplineKernel kernel(Dataset->ParticleRadius);
+			density += kernel.W(world - Dataset->Snapshots[CurrentFrame][i].Position);
+		}
+
+		ImGui::Text("Position: (%.3f, %.3f, %.3f)", world.x, world.y, world.z);
+		ImGui::Text("# Neighbors: %d", neighbors.size());
+		ImGui::Text("Density: %f", density);
+	}
 
 	ImGui::End();
 }
@@ -645,41 +667,22 @@ void DepthFluidRenderer::WriteDepthBufferCPUToFile()
 	Device.unmapMemory(DepthBufferCPU.Memory);
 }
 
-template <typename T, size_t stack_capacity>
-class StackAllocator : public std::allocator<T>
-{
-public:
-};
-
 float DepthFluidRenderer::GetDensity(const glm::vec3 viewPosition)
 {
 	// get world space position
-	const auto _position = glm::vec3(Camera.GetInvView() * glm::vec4(viewPosition, 1));
-	float position[3] = { _position.x, _position.y, _position.z };
+	const auto position = glm::vec3(Camera.GetInvView() * glm::vec4(viewPosition, 1));
 
 	constexpr uint32_t MAX_POINTS = 32;
 
-	float distancesSquared[MAX_POINTS];
-	Partio::ParticleIndex points[MAX_POINTS];
-	float finalRadius;
-
-	int n = Dataset.Files[CurrentFrame]->findNPoints(
-		position,
-		MAX_POINTS,
-		//SPHERE_RADIUS,
-		.5f,
-		points,
-		distancesSquared,
-		&finalRadius);
-
-	if (n > 0)
-		SPDLOG_INFO("Found {} points in neighbourhood!", n);
+	const auto neighbors = Dataset->GetNeighbors(position, CurrentFrame);
+	auto n = neighbors.size();
 
 	return float(n) / float(MAX_POINTS);
 }
 
 void DepthFluidRenderer::ProcessDepthBuffer()
 {
+	return;
 	PROFILE_FUNCTION();
 
 	float* depth = reinterpret_cast<float*>(
@@ -711,7 +714,7 @@ void DepthFluidRenderer::ProcessDepthBuffer()
 			glm::vec4 positionH = Camera.GetInvProjection() * glm::vec4(clipPosition, 1.0f);
 			glm::vec3 position = glm::vec3(positionH) / positionH.w;
 
-			glm::vec4 directionH = Camera.GetInvProjection() * glm::vec4(clipPosition.x, clipPosition.y, Camera.Near, 1.0f);
+			glm::vec4 directionH = Camera.GetInvProjection() * glm::vec4(clipPosition.x, clipPosition.y, 0.0f, 1.0f);
 			glm::vec3 direction = STEP_LENGTH * glm::normalize(glm::vec3(directionH));
 
 			// ray march

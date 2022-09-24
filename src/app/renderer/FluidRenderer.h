@@ -9,15 +9,16 @@ class FluidRenderer
 public:
 	~FluidRenderer()
 	{
-		Dataset.Exit();
+		delete Dataset;
+		Dataset = nullptr;
 	}
 
-	void SetDataset(const Dataset& dataset)
+	void SetDataset(Dataset* dataset)
 	{
 		Dataset = dataset;
 	}
 
 protected:
-	Dataset Dataset;
+	Dataset* Dataset;
 	int CurrentFrame = 0;
 };

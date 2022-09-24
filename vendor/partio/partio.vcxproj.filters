@@ -11,7 +11,6 @@
   <ItemGroup>
     <ClInclude Include="src\Partio.h" />
     <ClInclude Include="src\PartioAttribute.h" />
-    <ClInclude Include="src\PartioConfig.h" />
     <ClInclude Include="src\PartioIterator.h" />
     <ClInclude Include="src\PartioVec3.h" />
     <ClInclude Include="src\core\KdTree.h">
@@ -39,6 +38,9 @@
       <Filter>io</Filter>
     </ClInclude>
     <ClInclude Include="src\io\half2float.h">
+      <Filter>io</Filter>
+    </ClInclude>
+    <ClInclude Include="src\io\io.h">
       <Filter>io</Filter>
     </ClInclude>
     <ClInclude Include="src\io\pdb.h">

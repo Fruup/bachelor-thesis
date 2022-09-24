@@ -1,14 +1,13 @@
 #pragma once
 
 #include <Partio.h>
+#include <CompactNSearch.h>
 
 #include <engine/assets/AssetPath.h>
 
 struct Particle
 {
 	glm::vec3 Position;
-	//glm::vec3 Velocity;
-	//float Density;
 };
 
 class Dataset
@@ -16,7 +15,7 @@ class Dataset
 	using Snapshot = std::vector<Particle>;
 
 public:
-	bool Init(const std::string& pathPrefix, const std::string& pathSuffix = ".bgeo", int startIndex = 1)
+	Dataset(const std::string& pathPrefix, const std::string& pathSuffix = ".bgeo", int startIndex = 1)
 	{
 		std::string path;
 		int i = startIndex;
@@ -34,45 +33,49 @@ public:
 			if (!absolutePath.Exists())
 				break;
 
-			File = Partio::read(absolutePath.string().c_str());
+			auto file = Partio::read(absolutePath.string().c_str());
+			if (!file) return;
 
-			if (!File) return false;
+			// read in particle data
+			ReadFile(file);
+			file->release();
 
-			ReadFile(File);
-
-			Files.push_back(File);
+			// build search structure
+			BuildCompactNSearch();
 
 			++i;
 		}
 
-		return i != startIndex;
+		Loaded = true;
 	}
 
-	void Exit()
+	~Dataset()
 	{
-		if (File)
-		{
-			File->release();
-			File = nullptr;
-		}
-
-		for (const auto& file : Files)
-			file->release();
-		Files.clear();
-
 		Snapshots.clear();
+		NSearch.clear();
+
+		Loaded = false;
 	}
+
+	std::vector<uint32_t> GetNeighbors(const glm::vec3& position, uint32_t index)
+	{
+		std::vector<std::vector<uint32_t>> neighbors;
+		NSearch[index].find_neighbors(position.data.data, neighbors);
+
+		return neighbors[0];
+	}
+
+	const float ParticleRadius = 0.1f;
 
 	std::vector<Snapshot> Snapshots;
-	std::vector<Partio::ParticlesDataMutable*> Files;
-	Partio::ParticlesDataMutable* File = nullptr;
+	std::vector<CompactNSearch::NeighborhoodSearch> NSearch;
+
+	bool Loaded = false;
 
 private:
 	void ReadFile(Partio::ParticlesDataMutable* file)
 	{
 		Partio::ParticleAttribute attrPosition, attrVelocity;
-
-		file->sort();
 
 		file->attributeInfo("position", attrPosition);
 
@@ -88,5 +91,19 @@ private:
 		}
 
 		Snapshots.push_back(snapshot);
+	}
+
+	void BuildCompactNSearch()
+	{
+		CompactNSearch::NeighborhoodSearch search(ParticleRadius);
+		const auto ps = search.add_point_set((float*)Snapshots.back().data(), Snapshots.back().size());
+
+		// sort for quick access
+		search.z_sort();
+		search.point_set(ps).sort_field(Snapshots.back().data());
+		
+		search.update_point_sets();
+
+		NSearch.push_back(search);
 	}
 };

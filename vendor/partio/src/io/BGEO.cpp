@@ -33,18 +33,9 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 */
 
-#include "../Partio.h"
 #include "PartioEndian.h"
 #include "../core/ParticleHeaders.h"
-#include "ZIP.h"
-
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <memory>
-
-#include <string.h>
-#include <algorithm>
+#include "io.h"
 
 namespace Partio
 {
@@ -195,7 +186,7 @@ bool skipPrimitives(int nPoints, int nPrims, int nPrimAttrib, istream* input,std
 
 ParticlesDataMutable* readBGEO(const char* filename,const bool headersOnly,std::ostream* errorStream)
 {
-    unique_ptr<istream> input(Gzip_In(filename,ios::in|ios::binary));
+    unique_ptr<istream> input(io::unzip(filename));
     if(!*input){
         if(errorStream) *errorStream<<"Partio: Unable to open file "<<filename<<endl;
         return 0;
@@ -310,11 +301,7 @@ ParticlesDataMutable* readBGEO(const char* filename,const bool headersOnly,std::
 
 bool writeBGEO(const char* filename,const ParticlesData& p,const bool compressed,std::ostream* errorStream)
 {
-    unique_ptr<ostream> output(
-        compressed ? 
-        Gzip_Out(filename,ios::out|ios::binary)
-        :new ofstream(filename,ios::out|ios::binary));
-
+    unique_ptr<ostream> output(io::write(filename, compressed));
     if(!*output){
         if(errorStream) *errorStream <<"Partio Unable to open file "<<filename<<endl;
         return false;
@@ -350,9 +337,9 @@ bool writeBGEO(const char* filename,const ParticlesData& p,const bool compressed
             writeHoudiniStr(*output,attr.name);
             if(attr.type==INDEXEDSTR){
                 int houdiniType=4;
-                unsigned short size=attr.count;
+                unsigned short size=static_cast<unsigned short>(attr.count);
                 const std::vector<std::string>& indexTable=p.indexedStrs(attr);
-                int numIndexes=indexTable.size();
+                int numIndexes=static_cast<int>(indexTable.size());
                 write<BIGEND>(*output,size,houdiniType,numIndexes);
                 for(int i=0;i<numIndexes;i++)
                     writeHoudiniStr(*output,indexTable[i]);
@@ -365,7 +352,7 @@ bool writeBGEO(const char* filename,const ParticlesData& p,const bool compressed
                     case INDEXEDSTR:
                     case NONE: assert(false);houdiniType=0;break;
                 }
-                unsigned short size=attr.count;
+                unsigned short size=static_cast<unsigned short>(attr.count);
                 write<BIGEND>(*output,size,houdiniType);
                 for(int i=0;i<attr.count;i++){
                     int defaultValue=0;
@@ -465,7 +452,14 @@ bool writeBGEO(const char* filename,const ParticlesData& p,const bool compressed
 
     // Write extra
     write<BIGEND>(*output,(char)0x00);
+#ifdef _MSC_VER  
+	#pragma warning (push)  
+	#pragma warning (disable : 4310 )  // suppress the warning for 0xff being truncated to 0x7f (max value of a signed char)
+#endif  
     write<BIGEND>(*output,(char)0xff);
+#ifdef _MSC_VER  
+	#pragma warning (pop)  
+#endif  
 
     // success
     return true;

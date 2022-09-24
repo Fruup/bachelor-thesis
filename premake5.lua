@@ -61,6 +61,7 @@ workspace "fluids"
 
 include "vendor/zlib"
 include "vendor/partio"
+include "vendor/CompactNSearch"
 
 project "fluids"
 	kind "ConsoleApp"
@@ -78,6 +79,7 @@ project "fluids"
 		"vendor/spdlog/include",
 		"vendor/imgui",
 		"vendor/partio/src",
+		"vendor/CompactNSearch/include",
 		"%{VULKAN_SDK}/Include",
 	}
 
@@ -92,7 +94,9 @@ project "fluids"
 		"vendor/yaml-cpp/lib/%{cfg.buildcfg}/yaml-cpp",
 		"vendor/imgui/bin/%{cfg.buildcfg}/ImGui",
 		"%{VULKAN_SDK}/Lib/vulkan-1",
+
 		"partio",
+		"CompactNSearch",
 	}
 
 	pchheader "engine/hzpch.h"

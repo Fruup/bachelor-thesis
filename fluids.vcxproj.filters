@@ -180,6 +180,9 @@
     <ClInclude Include="vendor\imgui\backends\imgui_impl_vulkan.h">
       <Filter>vendor\imgui\backends</Filter>
     </ClInclude>
+    <ClInclude Include="src\app\Kernel.h">
+      <Filter>src\app</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\app\renderer\AdvancedFluidRenderer.cpp">
@@ -286,6 +289,9 @@
     </ClCompile>
     <ClCompile Include="vendor\imgui\backends\imgui_impl_vulkan.cpp">
       <Filter>vendor\imgui\backends</Filter>
+    </ClCompile>
+    <ClCompile Include="src\app\Kernel.cpp">
+      <Filter>src\app</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

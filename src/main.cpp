@@ -38,8 +38,8 @@ public:
 		}
 
 		// load dataset
-		Dataset dataset;
-		if (!dataset.Init(datasetPrefix))
+		Dataset* dataset = new Dataset(datasetPrefix);
+		if (!dataset->Loaded)
 			return false;
 
 		// init fluid renderer

@@ -131,7 +131,6 @@
   <ItemGroup>
     <ClInclude Include="src\Partio.h" />
     <ClInclude Include="src\PartioAttribute.h" />
-    <ClInclude Include="src\PartioConfig.h" />
     <ClInclude Include="src\PartioIterator.h" />
     <ClInclude Include="src\PartioVec3.h" />
     <ClInclude Include="src\core\KdTree.h" />
@@ -143,6 +142,7 @@
     <ClInclude Include="src\io\PartioEndian.h" />
     <ClInclude Include="src\io\ZIP.h" />
     <ClInclude Include="src\io\half2float.h" />
+    <ClInclude Include="src\io\io.h" />
     <ClInclude Include="src\io\pdb.h" />
     <ClInclude Include="src\io\readers.h" />
   </ItemGroup>

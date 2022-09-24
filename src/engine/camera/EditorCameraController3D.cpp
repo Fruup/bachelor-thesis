@@ -21,6 +21,7 @@ void Camera3D::ComputeMatrices()
 {
 	InvView = glm::inverse(View);
 	ProjectionView = Projection * View;
+	InvProjectionView = glm::inverse(ProjectionView);
 }
 
 EditorCameraController3D::EditorCameraController3D(Camera3D& camera) :

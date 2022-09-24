@@ -73,7 +73,7 @@ void PointFluidRenderer::VExit()
 void PointFluidRenderer::Render()
 {
 	if (!Paused)
-		CurrentFrame = (CurrentFrame + 1) % Dataset.Snapshots.size();
+		CurrentFrame = (CurrentFrame + 1) % Dataset->Snapshots.size();
 
 	UpdateUniforms();
 	UpdateDescriptorSets();
@@ -360,7 +360,7 @@ void PointFluidRenderer::CollectRenderData()
 
 	const glm::vec3 up(0, 1, 0);
 
-	for (auto& particle : Dataset.Snapshots[CurrentFrame])
+	for (auto& particle : Dataset->Snapshots[CurrentFrame])
 	{
 		glm::vec3 z = CameraController.System[2];
 		glm::vec3 x = glm::normalize(glm::cross(up, z));

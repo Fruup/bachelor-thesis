@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CompactNSearch", "vendor\CompactNSearch\CompactNSearch.vcxproj", "{30E0C207-1CAE-B60D-0542-2734F1AE9272}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fluids", "fluids.vcxproj", "{AC7FB1FD-9821-DCD3-81DC-EF276D1D6324}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "partio", "vendor\partio\partio.vcxproj", "{B4923C14-A034-67EA-89EF-7A3E7530EE3A}"
@@ -14,6 +16,12 @@ Global
 		Release|Win64 = Release|Win64
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{30E0C207-1CAE-B60D-0542-2734F1AE9272}.Debug|Win64.ActiveCfg = Debug Win64|x64
+		{30E0C207-1CAE-B60D-0542-2734F1AE9272}.Debug|Win64.Build.0 = Debug Win64|x64
+		{30E0C207-1CAE-B60D-0542-2734F1AE9272}.Production|Win64.ActiveCfg = Production Win64|x64
+		{30E0C207-1CAE-B60D-0542-2734F1AE9272}.Production|Win64.Build.0 = Production Win64|x64
+		{30E0C207-1CAE-B60D-0542-2734F1AE9272}.Release|Win64.ActiveCfg = Release Win64|x64
+		{30E0C207-1CAE-B60D-0542-2734F1AE9272}.Release|Win64.Build.0 = Release Win64|x64
 		{AC7FB1FD-9821-DCD3-81DC-EF276D1D6324}.Debug|Win64.ActiveCfg = Debug Win64|x64
 		{AC7FB1FD-9821-DCD3-81DC-EF276D1D6324}.Debug|Win64.Build.0 = Debug Win64|x64
 		{AC7FB1FD-9821-DCD3-81DC-EF276D1D6324}.Production|Win64.ActiveCfg = Production Win64|x64

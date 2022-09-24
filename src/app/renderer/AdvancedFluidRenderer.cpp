@@ -460,7 +460,7 @@ void AdvancedFluidRenderer::CollectRenderData()
 
 	Vertex quad[6];
 
-	for (auto& particle : Dataset.Snapshots[CurrentFrame])
+	for (auto& particle : Dataset->Snapshots[CurrentFrame])
 	{
 		glm::vec3 z = CameraController.System[2];
 		glm::vec3 x = glm::normalize(glm::cross(up, z));
@@ -490,7 +490,7 @@ void AdvancedFluidRenderer::Render()
 {
 	PerformanceTimer _timer("AdvancedFluidRenderer::RenderFrame");
 
-	if (CurrentFrame > Dataset.Snapshots.size() - 1)
+	if (CurrentFrame > Dataset->Snapshots.size() - 1)
 		CurrentFrame = 0;
 
 	if (!Paused)
@@ -593,7 +593,7 @@ void AdvancedFluidRenderer::RenderUI()
 
 void AdvancedFluidRenderer::UpdateParticleBuffer()
 {
-	auto& snapshot = Dataset.Snapshots[CurrentFrame];
+	auto& snapshot = Dataset->Snapshots[CurrentFrame];
 
 	// collect particle data
 	int NumParticles = snapshot.size();

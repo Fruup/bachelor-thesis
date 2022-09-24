@@ -21,6 +21,7 @@ public:
 	const auto& GetInvView() const { return InvView; }
 	const auto& GetInvProjection() const { return InvProjection; }
 	const auto& GetProjectionView() const { return ProjectionView; }
+	const auto& GetInvProjectionView() const { return InvProjectionView; }
 
 	float GetNear() const { return Near; }
 	float GetFar() const { return Far; }
@@ -30,7 +31,9 @@ public:
 	float Near, Far;
 	float FOV, Aspect;
 
-	glm::mat4 Projection, View, InvView, InvProjection, ProjectionView;
+	glm::mat4 Projection, View;
+	glm::mat4 ProjectionView;
+	glm::mat4 InvView, InvProjection, InvProjectionView;
 };
 
 class EditorCameraController3D

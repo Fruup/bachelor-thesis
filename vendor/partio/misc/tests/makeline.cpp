@@ -1,6 +1,6 @@
 /*
 PARTIO SOFTWARE
-Copyright 2013 Disney Enterprises, Inc. All rights reserved
+Copyright 2010 Disney Enterprises, Inc. All rights reserved
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -33,17 +33,41 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
 */
 
-#ifndef _PartioConfig_h_
-#define _PartioConfig_h_
+#include <Partio.h>
+#include <PartioIterator.h>
+#include <iostream>
 
-#ifdef PARTIO_NAMESPACE
-#define PARTIO PARTIO_NAMESPACE::Partio
-#define ENTER_PARTIO_NAMESPACE namespace PARTIO_NAMESPACE { namespace Partio {
-#define EXIT_PARTIO_NAMESPACE } }
-#else
-#define PARTIO Partio
-#define ENTER_PARTIO_NAMESPACE namespace Partio {
-#define EXIT_PARTIO_NAMESPACE }
-#endif
+int main(int argc,char *argv[])
+{
 
-#endif
+    Partio::ParticlesDataMutable* particles=Partio::createInterleave();
+
+	particles->addParticles(10);
+
+    Partio::ParticleAttribute position=particles->addAttribute("position",Partio::VECTOR,3);
+    Partio::ParticleAttribute id=particles->addAttribute("id",Partio::INT,1);
+
+    
+    
+    Partio::ParticlesDataMutable::iterator it=particles->begin();
+    Partio::ParticleAccessor positionAccess(position);
+    it.addAccessor(positionAccess);
+    Partio::ParticleAccessor idAccess(id);
+    it.addAccessor(idAccess);
+
+    float x=0;
+    int idCounter=0;
+    for(;it!=particles->end();++it){
+        Partio::Data<float,3>& P=positionAccess.data<Partio::Data<float,3> >(it);
+        Partio::Data<int,1>& id=idAccess.data<Partio::Data<int,1> >(it);
+        P[0]=x;P[1]=-x;P[2]=0;
+        id[0]=idCounter;
+        x+=1.;
+        idCounter++;
+    }
+    
+    Partio::write("test.bgeo",*particles);
+    Partio::write("test.geo",*particles);
+    
+
+}

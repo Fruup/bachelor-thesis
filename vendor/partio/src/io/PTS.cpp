@@ -37,15 +37,9 @@ Some code for this format  was helped along  by referring to an implementation b
 */
 #include "../Partio.h"
 #include "../core/ParticleHeaders.h"
-#include "ZIP.h"
+#include "io.h"
 
-#include <iostream>
 #include <sstream>
-#include <fstream>
-#include <string>
-#include <cassert>
-#include <memory>
-#include <cstring>
 
 namespace Partio
 {
@@ -56,9 +50,8 @@ using namespace std;
 
 ParticlesDataMutable* readPTS(const char* filename,const bool headersOnly,std::ostream* errorStream)
 {
-    unique_ptr<istream> input(Gzip_In(filename,ios::in|ios::binary));
-    if (!*input)
-    {
+    unique_ptr<istream> input(io::unzip(filename));
+    if (!*input) {
         if(errorStream) *errorStream<<"Partio: Can't open particle data file: "<<filename<<endl;
         return 0;
     }
@@ -89,14 +82,23 @@ ParticlesDataMutable* readPTS(const char* filename,const bool headersOnly,std::o
 	input->getline(line,1024);
     input->getline(line,1024);
     int valcount = 0;
-    char * pch = strtok( line, "\t " );
+#ifdef PARTIO_WIN32
+	char * nextLine = NULL;
+    char * pch = strtok_s( line, "\t ", &nextLine );
+#else
+	char * pch = strtok( line, "\t " );
+#endif
     while ( pch )
     {
         if ( *pch != 0 && *pch != '\n' )
 		{
             valcount++;
         }
-        pch = strtok( NULL, "\t " );
+#ifdef PARTIO_WIN32
+        pch = strtok_s( NULL, "\t ", &nextLine );
+#else
+		pch = strtok( NULL, "\t " );
+#endif
     }
 
 
@@ -248,11 +250,7 @@ ParticlesDataMutable* readPTS(const char* filename,const bool headersOnly,std::o
 /*
 bool writePTS(const char* filename,const ParticlesData& p,const bool compressed)
 {
-    unique_ptr<ostream> output(
-        compressed ?
-        Gzip_Out(filename,ios::out|ios::binary)
-        :new ofstream(filename,ios::out|ios::binary));
-
+    unique_ptr<ostream> output(io::write(filename, compressed));
     *output<<"ATTRIBUTES"<<endl;
 
     vector<ParticleAttribute> attrs;
