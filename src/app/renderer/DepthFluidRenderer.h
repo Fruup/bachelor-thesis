@@ -31,6 +31,8 @@ public:
 		Renderer::Update(time);
 	}
 
+	void End() override;
+
 private:
 	bool CreateRenderPass() override;
 	bool CreateFramebuffers() override;
@@ -91,6 +93,8 @@ private:
 
 		vk::DescriptorSet DescriptorSet;
 	} CompositionPass;
+
+	Buffer DepthBufferCPU;
 
 	bool Paused = false;
 };

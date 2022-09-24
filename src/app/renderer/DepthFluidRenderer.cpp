@@ -4,9 +4,11 @@
 
 #include <engine/renderer/objects/Command.h>
 
+#include <fstream>
+
 // ------------------------------------------------------------------------
 
-const float SPHERE_RADIUS = .01f;
+const float SPHERE_RADIUS = .1f;
 
 const uint32_t MAX_PARTICLES = 10000;
 const uint32_t MAX_VERTICES = MAX_PARTICLES * 6;
@@ -37,6 +39,16 @@ bool DepthFluidRenderer::VInit()
 	if (!CreateVertexBuffer()) return false;
 	if (!CreateUniformBuffer()) return false;
 
+	// create CPU depth buffer
+	DepthBufferCPU.Create(
+		4 *
+		Renderer::GetInstance().GetSwapchainExtent().width *
+		Renderer::GetInstance().GetSwapchainExtent().height,
+		vk::BufferUsageFlagBits::eTransferDst,
+		vk::MemoryPropertyFlagBits::eHostCoherent |
+		vk::MemoryPropertyFlagBits::eHostVisible
+	);
+
 	ImGuiSubpass = 2;
 
 	// init camera
@@ -51,7 +63,7 @@ bool DepthFluidRenderer::VInit()
 		1000.0f
 	);
 
-	CameraController.SetPosition({ 0, 3, -10 });
+	CameraController.SetPosition({ 0, 3, -5 });
 	CameraController.SetOrientation(glm::quatLookAt(glm::normalize(-CameraController.Position), { 0, 1, 0 }));
 	
 	Camera.ComputeMatrices();
@@ -133,6 +145,49 @@ void DepthFluidRenderer::Render()
 	RenderUI();
 }
 
+void DepthFluidRenderer::End()
+{
+	// call parent
+	Renderer::End();
+
+	// copy depth buffer from GPU to GPU
+	auto region = vk::BufferImageCopy(
+		0, // offset
+		0, // row length
+		0, // buffer image height
+		vk::ImageSubresourceLayers(
+			vk::ImageAspectFlagBits::eDepth,
+			0, // mip level
+			0, // base array layer
+			1 // layer count
+		),
+		{ 0, 0, 0 }, // image offset (3D)
+		{ SwapchainExtent.width, SwapchainExtent.height, 1 } // image extent (3D)
+	);
+
+	auto cmd = Command::BeginOneTimeCommand();
+
+	cmd.copyImageToBuffer(
+		DepthBuffer.GetImage(),
+		vk::ImageLayout::eTransferSrcOptimal,
+		DepthBufferCPU,
+		region
+	);
+
+	Command::EndOneTimeCommand(cmd);
+
+	{
+		auto size = 4 * SwapchainExtent.width * SwapchainExtent.height;
+		auto data = Device.mapMemory(DepthBufferCPU.Memory, 0, size);
+
+		std::ofstream file("DEPTHBUFFER", std::ios::trunc | std::ios::binary);
+		file.write((char*)data, size);
+		file.close();
+
+		Device.unmapMemory(DepthBufferCPU.Memory);
+	}
+}
+
 bool DepthFluidRenderer::CreateRenderPass()
 {
 	// attachments
@@ -159,10 +214,9 @@ bool DepthFluidRenderer::CreateRenderPass()
 		.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
 		.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
 		.setInitialLayout(vk::ImageLayout::eUndefined)
-		.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-		/*.setFinalLayout(vk::ImageLayout::eTransferSrcOptimal)*/;
+		//.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+		.setFinalLayout(vk::ImageLayout::eTransferSrcOptimal);
 
-	
 	// subpasses
 
 	vk::SubpassDescription depthSubpass;
@@ -375,7 +429,7 @@ bool DepthFluidRenderer::CreatePipeline()
 	{
 		// shaders
 		r = CompositionPass.VertexShader.Create(
-			"shaders/depthRenderer/fullscreen.vert",
+			"shaders/fullscreen.vert",
 			vk::ShaderStageFlagBits::eVertex,
 			{}
 		);
