@@ -166,8 +166,11 @@ bool CenterGlfwWindow()
 	return true;
 }
 
-bool Renderer::Init(int width, int height, const char* title)
+bool Renderer::Init(int width, int height, int pixelSize, const char* title)
 {
+	SwapchainExtent.setWidth(width);
+	SwapchainExtent.setHeight(height);
+
 	// glfw
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -175,7 +178,7 @@ bool Renderer::Init(int width, int height, const char* title)
 	glfwSetErrorCallback(GlfwErrorCallback);
 
 	Window = glfwCreateWindow(
-		width, height, title,
+		pixelSize * width, pixelSize * height, title,
 		nullptr, nullptr
 	);
 

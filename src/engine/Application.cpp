@@ -24,21 +24,22 @@ void Application::Init()
 		const auto gameConfig = config["game"];
 		const auto displayConfig = config["display"];
 
-		Data.Config.Title = displayConfig["title"].as<std::string>();
-		Data.Config.Width = displayConfig["width"].as<int>();
-		Data.Config.Height = displayConfig["height"].as<int>();
+		Data.Config.Title = displayConfig["title"].as<std::string>("Application");
+		Data.Config.Width = displayConfig["width"].as<int>(500);
+		Data.Config.Height = displayConfig["height"].as<int>(500);
+		Data.Config.PixelSize = displayConfig["pixelSize"].as<int>(1);
 		Data.Config.ShowDemoWindow = displayConfig["showDemoWindow"].as<bool>(true);
 	}
 	catch (std::exception e)
 	{
-		Data.Config.Title = "Application";
-		Data.Config.Width = 500;
-		Data.Config.Height = 500;
-		Data.Config.ShowDemoWindow = true;
 	}
 
 	// init renderer
-	if (!Renderer::GetInstance().Init(Data.Config.Width, Data.Config.Height, Data.Config.Title.c_str()))
+	if (!Renderer::GetInstance().Init(
+		Data.Config.Width,
+		Data.Config.Height,
+		Data.Config.PixelSize,
+		Data.Config.Title.c_str()))
 	{
 		SPDLOG_ERROR("Failed to init renderer!");
 		return;

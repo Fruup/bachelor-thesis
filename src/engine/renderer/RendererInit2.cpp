@@ -61,20 +61,24 @@ vk::PresentModeKHR ChooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& 
 	return vk::PresentModeKHR::eFifo; // v-sync
 }
 
-vk::Extent2D ChooseSwapExtent(const vk::SurfaceCapabilitiesKHR& caps)
+vk::Extent2D ChooseSwapExtent(const vk::SurfaceCapabilitiesKHR& caps, vk::Extent2D desiredExtent)
 {
 	if (caps.currentExtent.width != UINT32_MAX)
 		return caps.currentExtent;
 
-	int w, h;
-	glfwGetFramebufferSize(Renderer::GetInstance().Window, &w, &h);
+	if (desiredExtent.width == 0 || desiredExtent.height == 0)
+	{
+		int w, h;
+		glfwGetFramebufferSize(Renderer::GetInstance().Window, &w, &h);
 
-	vk::Extent2D extent{ uint32_t(w), uint32_t(h) };
+		desiredExtent.width = w;
+		desiredExtent.height = h;
+	}
 
-	extent.width = std::clamp(extent.width, caps.minImageExtent.width, caps.maxImageExtent.width);
-	extent.height = std::clamp(extent.height, caps.minImageExtent.height, caps.maxImageExtent.height);
+	desiredExtent.width = std::clamp(desiredExtent.width, caps.minImageExtent.width, caps.maxImageExtent.width);
+	desiredExtent.height = std::clamp(desiredExtent.height, caps.minImageExtent.height, caps.maxImageExtent.height);
 
-	return extent;
+	return desiredExtent;
 }
 
 bool Renderer::IsDeviceSuitable(vk::PhysicalDevice device)
@@ -270,7 +274,7 @@ bool Renderer::CreateSwapChain()
 
 	auto format = ChooseSwapSurfaceFormat(support.Formats);
 	auto presentMode = ChooseSwapPresentMode(support.PresentModes);
-	auto extent = ChooseSwapExtent(support.Caps);
+	auto extent = ChooseSwapExtent(support.Caps, SwapchainExtent);
 
 	uint32_t imageCount = support.Caps.minImageCount + 1;
 	if (imageCount > support.Caps.maxImageCount && support.Caps.maxImageCount > 0)

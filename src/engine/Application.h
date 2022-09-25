@@ -10,6 +10,7 @@ struct ApplicationData
 	{
 		std::string Title;
 		int Width, Height;
+		int PixelSize;
 		bool ShowDemoWindow;
 	} Config;
 };

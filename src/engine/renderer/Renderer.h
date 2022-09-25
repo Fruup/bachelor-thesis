@@ -40,7 +40,7 @@ class Renderer
 public:
 	static Renderer& GetInstance();
 
-	bool Init(int width, int height, const char* title);
+	bool Init(int width, int height, int pixelSize, const char* title);
 	void Exit();
 
 	virtual bool VInit() { return true; }
