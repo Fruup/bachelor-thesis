@@ -293,5 +293,8 @@
     <ClCompile Include="src\app\Kernel.cpp">
       <Filter>src\app</Filter>
     </ClCompile>
+    <ClCompile Include="src\app\Dataset.cpp">
+      <Filter>src\app</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

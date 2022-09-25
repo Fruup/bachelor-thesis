@@ -20,5 +20,5 @@ public:
 
 protected:
 	Dataset* Dataset;
-	int CurrentFrame = 0;
+	int CurrentFrame = 100;
 };

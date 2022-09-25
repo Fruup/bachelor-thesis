@@ -26,6 +26,8 @@ public:
 	void VExit() override;
 
 	void Render() override;
+	void RenderUI() override;
+
 	void Update(float time) override
 	{
 		Renderer::Update(time);
@@ -48,12 +50,10 @@ private:
 	void UpdateDescriptorSetComposition();
 	void CollectRenderData();
 
-	void WriteDepthBufferCPUToFile();
+	void WriteDepthBufferCPUToFile(const char* name = "DEPTHBUFFER");
 	void ProcessDepthBuffer();
 
 	float GetDensity(const glm::vec3 viewPosition);
-
-	void RenderUI();
 
 private:
 	struct

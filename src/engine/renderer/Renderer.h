@@ -50,6 +50,7 @@ public:
 	virtual void End();
 
 	virtual void Render() {}
+	virtual void RenderUI() {}
 
 	virtual void Update(float time)
 	{

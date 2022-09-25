@@ -187,6 +187,7 @@
     <ClInclude Include="vendor\imgui\backends\imgui_impl_vulkan.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\app\Dataset.cpp" />
     <ClCompile Include="src\app\Kernel.cpp" />
     <ClCompile Include="src\app\renderer\AdvancedFluidRenderer.cpp" />
     <ClCompile Include="src\app\renderer\DepthFluidRenderer.cpp" />

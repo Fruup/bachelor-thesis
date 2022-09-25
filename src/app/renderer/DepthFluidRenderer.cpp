@@ -14,6 +14,12 @@
 const uint32_t MAX_PARTICLES = 10000;
 const uint32_t MAX_VERTICES = MAX_PARTICLES * 6;
 
+static int s_MaxSteps = 16;
+static float s_StepSize = 0.01f;
+static float s_IsoDensity = 0.1f;
+
+static bool s_ProcessDepthBuffer = false;
+
 // ------------------------------------------------------------------------
 
 decltype(DepthFluidRenderer::Vertex::Attributes) DepthFluidRenderer::Vertex::Attributes = {
@@ -140,8 +146,6 @@ void DepthFluidRenderer::Render()
 
 		CommandBuffer.draw(3, 1, 0, 0);
 	}
-
-	RenderUI();
 }
 
 void DepthFluidRenderer::End()
@@ -175,7 +179,11 @@ void DepthFluidRenderer::End()
 
 	Command::EndOneTimeCommand(cmd);
 
-	ProcessDepthBuffer();
+	if (s_ProcessDepthBuffer)
+	{
+		ProcessDepthBuffer();
+		s_ProcessDepthBuffer = false;
+	}
 }
 
 bool DepthFluidRenderer::CreateRenderPass()
@@ -514,69 +522,59 @@ void DepthFluidRenderer::UpdateDescriptorSetDepth()
 {
 	std::vector<vk::WriteDescriptorSet> writes;
 
-	{
-		vk::DescriptorBufferInfo bufferInfo;
-		bufferInfo
-			.setBuffer(DepthPass.UniformBuffer)
-			.setOffset(0)
-			.setRange(DepthPass.UniformBuffer.Size);
+	vk::DescriptorBufferInfo bufferInfo;
+	bufferInfo
+		.setBuffer(DepthPass.UniformBuffer.Buffer)
+		.setOffset(0)
+		.setRange(DepthPass.UniformBuffer.Size);
 
-		vk::WriteDescriptorSet write;
-		write
-			.setBufferInfo(bufferInfo)
-			.setDescriptorCount(1)
-			.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-			.setDstBinding(0)
-			.setDstSet(DepthPass.DescriptorSet);
+	vk::WriteDescriptorSet write;
+	write
+		.setBufferInfo(bufferInfo)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+		.setDstBinding(0)
+		.setDstSet(DepthPass.DescriptorSet);
 
-		writes.push_back(write);
-	}
+	writes.push_back(write);
 
 	Device.updateDescriptorSets(writes, {});
 }
 
 void DepthFluidRenderer::UpdateDescriptorSetComposition()
 {
-	std::vector<vk::WriteDescriptorSet> writes;
+	// uniform buffer
+	vk::DescriptorBufferInfo uniformBufferInfo;
+	uniformBufferInfo
+		.setBuffer(CompositionPass.UniformBuffer)
+		.setOffset(0)
+		.setRange(CompositionPass.UniformBuffer.Size);
 
-	{
-		// uniform buffer
-		{
-			vk::DescriptorBufferInfo bufferInfo;
-			bufferInfo
-				.setBuffer(CompositionPass.UniformBuffer)
-				.setOffset(0)
-				.setRange(CompositionPass.UniformBuffer.Size);
+	vk::WriteDescriptorSet uniformWrite;
+	uniformWrite
+		.setBufferInfo(uniformBufferInfo)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+		.setDstBinding(0)
+		.setDstSet(CompositionPass.DescriptorSet);
 
-			vk::WriteDescriptorSet write;
-			write
-				.setBufferInfo(bufferInfo)
-				.setDescriptorCount(1)
-				.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-				.setDstBinding(0)
-				.setDstSet(CompositionPass.DescriptorSet);
+	// depth input attachment
+	vk::DescriptorImageInfo depthImageInfo;
+	depthImageInfo
+		.setImageView(DepthBuffer.GetView())
+		.setImageLayout(vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal);
 
-			writes.push_back(write);
-		}
+	vk::WriteDescriptorSet depthAttachmentWrite;
+	depthAttachmentWrite
+		.setImageInfo(depthImageInfo)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eInputAttachment)
+		.setDstBinding(1)
+		.setDstSet(CompositionPass.DescriptorSet);
 
-		// depth input attachment
-		{
-			vk::DescriptorImageInfo imageInfo;
-			imageInfo
-				.setImageView(DepthBuffer.GetView())
-				.setImageLayout(vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal);
-
-			vk::WriteDescriptorSet write;
-			write
-				.setImageInfo(imageInfo)
-				.setDescriptorCount(1)
-				.setDescriptorType(vk::DescriptorType::eInputAttachment)
-				.setDstBinding(1)
-				.setDstSet(CompositionPass.DescriptorSet);
-
-			writes.push_back(write);
-		}
-	}
+	std::array<vk::WriteDescriptorSet, 2> writes = {
+		uniformWrite, depthAttachmentWrite,
+	};
 
 	Device.updateDescriptorSets(writes, {});
 }
@@ -596,10 +594,12 @@ void DepthFluidRenderer::CollectRenderData()
 		glm::vec3 x = glm::normalize(glm::cross(up, z));
 		glm::vec3 y = glm::normalize(glm::cross(x, z));
 
-		glm::vec3 topLeft = particle.Position + Dataset->ParticleRadius * (-x + y);
-		glm::vec3 topRight = particle.Position + Dataset->ParticleRadius * (+x + y);
-		glm::vec3 bottomLeft = particle.Position + Dataset->ParticleRadius * (-x - y);
-		glm::vec3 bottomRight = particle.Position + Dataset->ParticleRadius * (+x - y);
+		glm::vec3 p(particle[0], particle[1], particle[2]);
+
+		glm::vec3 topLeft = p + Dataset->ParticleRadius * (-x + y);
+		glm::vec3 topRight = p + Dataset->ParticleRadius * (+x + y);
+		glm::vec3 bottomLeft = p + Dataset->ParticleRadius * (-x - y);
+		glm::vec3 bottomRight = p + Dataset->ParticleRadius * (+x - y);
 
 		target[DepthPass.NumVertices++] = { topLeft, { 0, 0 } };
 		target[DepthPass.NumVertices++] = { bottomLeft, { 0, 1 } };
@@ -628,40 +628,21 @@ void DepthFluidRenderer::RenderUI()
 	ImGui::SliderInt("Frame", &CurrentFrame, 0, Dataset->Snapshots.size() - 1);
 
 	{
-		const float DISTANCE_Z = 5.0f;
-
-		glm::vec2 resolution{ SwapchainExtent.width, SwapchainExtent.height };
-		auto clip = 2.0f * Input::GetCursorPosition().operator glm::vec2() / resolution - 1.0f;
-
-		auto viewH = Camera.GetInvProjection() * glm::vec4(clip, 0, 1);
-		auto view = glm::vec3(viewH) / (viewH.w * DISTANCE_Z);
-		
-		auto world = glm::vec3(Camera.GetInvView() * glm::vec4(view, 1));
-
-		auto neighbors = Dataset->GetNeighbors(world, CurrentFrame);
-
-		float density = 0.0f;
-		for (auto& i : neighbors)
-		{
-			CubicSplineKernel kernel(Dataset->ParticleRadius);
-			density += kernel.W(world - Dataset->Snapshots[CurrentFrame][i].Position);
-		}
-
-		ImGui::Text("Position: (%.3f, %.3f, %.3f)", world.x, world.y, world.z);
-		ImGui::Text("# Neighbors: %d", neighbors.size());
-		ImGui::Text("Density: %f", density);
+		ImGui::DragInt("Max steps", &s_MaxSteps, 1.0f, 1, 50);
+		ImGui::InputFloat("Step size", &s_StepSize, 0.1f, 0.0f, "%f");
+		ImGui::InputFloat("Iso density", &s_IsoDensity, 0.1f, 0.0f, "%f");
+		s_ProcessDepthBuffer = ImGui::Button("Process");
 	}
 
 	ImGui::End();
 }
 
-void DepthFluidRenderer::WriteDepthBufferCPUToFile()
+void DepthFluidRenderer::WriteDepthBufferCPUToFile(const char* name)
 {
-	auto size = 4 * SwapchainExtent.width * SwapchainExtent.height;
-	auto data = Device.mapMemory(DepthBufferCPU.Memory, 0, size);
+	auto data = Device.mapMemory(DepthBufferCPU.Memory, 0, DepthBufferCPU.Size);
 
-	std::ofstream file("DEPTHBUFFER", std::ios::trunc | std::ios::binary);
-	file.write((char*)data, size);
+	std::ofstream file(name, std::ios::trunc | std::ios::binary);
+	file.write((char*)data, DepthBufferCPU.Size);
 	file.close();
 
 	Device.unmapMemory(DepthBufferCPU.Memory);
@@ -672,18 +653,48 @@ float DepthFluidRenderer::GetDensity(const glm::vec3 viewPosition)
 	// get world space position
 	const auto position = glm::vec3(Camera.GetInvView() * glm::vec4(viewPosition, 1));
 
-	constexpr uint32_t MAX_POINTS = 32;
-
 	const auto neighbors = Dataset->GetNeighbors(position, CurrentFrame);
-	auto n = neighbors.size();
 
-	return float(n) / float(MAX_POINTS);
+	float density = 0.0f;
+	CubicSplineKernel kernel(Dataset->ParticleRadius);
+
+	for (auto& i : neighbors)
+	{
+		glm::vec3 p(
+			Dataset->Snapshots[CurrentFrame][i][0],
+			Dataset->Snapshots[CurrentFrame][i][1],
+			Dataset->Snapshots[CurrentFrame][i][2]);
+
+		density += kernel.W(position - p);
+	}
+
+	return density;
+}
+
+template <typename T>
+void DumpDataToFile(const char* filename, const std::vector<T>& data)
+{
+	std::ofstream file(filename, std::ios::binary | std::ios::trunc);
+	file.write((char*)data.data(), sizeof(T) * data.size());
+	file.close();
 }
 
 void DepthFluidRenderer::ProcessDepthBuffer()
 {
-	return;
 	PROFILE_FUNCTION();
+
+
+	static std::vector<float> output;
+	output.resize(SwapchainExtent.width * SwapchainExtent.height);
+
+	for (size_t i = 0; i < output.size(); i++)
+		output[i] = -1.0f;
+
+
+
+
+
+	WriteDepthBufferCPUToFile("output/DEPTH");
 
 	float* depth = reinterpret_cast<float*>(
 		Device.mapMemory(DepthBufferCPU.Memory, 0, DepthBufferCPU.Size));
@@ -691,18 +702,24 @@ void DepthFluidRenderer::ProcessDepthBuffer()
 	const float halfInverseWidth = 2.0f / float(SwapchainExtent.width);
 	const float halfInverseHeight = 2.0f / float(SwapchainExtent.height);
 
-#define MAX_STEPS 16
-#define STEP_LENGTH 0.05f
-#define ISO_DENSITY 0.5f
+#define MAX_STEPS s_MaxSteps
+#define STEP_LENGTH s_StepSize
+#define ISO_DENSITY s_IsoDensity
 
-//#pragma omp parallel for
+	SPDLOG_INFO("Let's go");
+
+#pragma omp parallel for
 	for (int x = 0; x < SwapchainExtent.width; x++)
 	{
-//#pragma omp parallel for
+#pragma omp parallel for
 		for (int y = 0; y < SwapchainExtent.height; y++)
 		{
 			float clipZ = depth[y * SwapchainExtent.width + x];
-			if (clipZ == 1.0f) continue;
+			if (clipZ == 1.0f)
+			{
+				depth[y * SwapchainExtent.width + x] = 0.0f;
+				continue;
+			}
 
 			const glm::vec3 clipPosition{
 				float(x) * halfInverseWidth - 1.0f,
@@ -714,8 +731,7 @@ void DepthFluidRenderer::ProcessDepthBuffer()
 			glm::vec4 positionH = Camera.GetInvProjection() * glm::vec4(clipPosition, 1.0f);
 			glm::vec3 position = glm::vec3(positionH) / positionH.w;
 
-			glm::vec4 directionH = Camera.GetInvProjection() * glm::vec4(clipPosition.x, clipPosition.y, 0.0f, 1.0f);
-			glm::vec3 direction = STEP_LENGTH * glm::normalize(glm::vec3(directionH));
+			glm::vec3 direction = STEP_LENGTH * glm::normalize(position);
 
 			// ray march
 			for (size_t i = 0; i < MAX_STEPS; i++)
@@ -729,12 +745,22 @@ void DepthFluidRenderer::ProcessDepthBuffer()
 				if (density >= ISO_DENSITY)
 				{
 					// position found, write to buffer
-					depth[y * SwapchainExtent.width + x] = position.z;
+					//depth[y * SwapchainExtent.width + x] = float(i) / float(MAX_STEPS);
+
+					output[y * SwapchainExtent.width + x] = position.z;
+
 					i = MAX_STEPS;
 				}
 			}
 		}
 	}
-
+	
 	Device.unmapMemory(DepthBufferCPU.Memory);
+
+	// write output to file
+	std::ofstream file("output/OUTPUT", std::ios::binary | std::ios::trunc);
+	file.write((char*)output.data(), sizeof(decltype(output)::value_type) * output.size());
+	file.close();
+
+	SPDLOG_INFO("done");
 }

@@ -366,10 +366,12 @@ void PointFluidRenderer::CollectRenderData()
 		glm::vec3 x = glm::normalize(glm::cross(up, z));
 		glm::vec3 y = glm::normalize(glm::cross(x, z));
 
-		glm::vec3 topLeft = particle.Position + SPHERE_RADIUS * (-x + y);
-		glm::vec3 topRight = particle.Position + SPHERE_RADIUS * (+x + y);
-		glm::vec3 bottomLeft = particle.Position + SPHERE_RADIUS * (-x - y);
-		glm::vec3 bottomRight = particle.Position + SPHERE_RADIUS * (+x - y);
+		glm::vec3 p(particle[0], particle[1], particle[2]);
+
+		glm::vec3 topLeft = p + SPHERE_RADIUS * (-x + y);
+		glm::vec3 topRight = p + SPHERE_RADIUS * (+x + y);
+		glm::vec3 bottomLeft = p + SPHERE_RADIUS * (-x - y);
+		glm::vec3 bottomRight = p + SPHERE_RADIUS * (+x - y);
 
 		target[NumVertices++] = { topLeft, { 0, 0 } };
 		target[NumVertices++] = { bottomLeft, { 0, 1 } };

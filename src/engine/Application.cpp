@@ -139,6 +139,7 @@ void Application::Run()
 		Renderer::GetInstance().Render();
 
 		RenderImGui();
+		Renderer::GetInstance().RenderUI();
 		GlobalStatistics.ImGuiRender();
 
 		OnRender(delta);
