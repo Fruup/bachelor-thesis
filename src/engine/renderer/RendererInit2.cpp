@@ -239,6 +239,11 @@ bool Renderer::CreateLogicalDevice()
 		.setPEnabledFeatures(&deviceFeatures)
 		.setPEnabledLayerNames(ValidationLayers);
 
+	// enable dynamic rendering
+	// TODO: Check if this is still necessary.
+	vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature(true);
+	createInfo.setPNext(&dynamicRenderingFeature);
+
 	Device = PhysicalDevice.createDevice(createInfo);
 
 	if (!Device)

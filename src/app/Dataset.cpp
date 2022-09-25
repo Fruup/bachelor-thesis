@@ -35,6 +35,9 @@ Dataset::Dataset(const std::string& pathPrefix, const std::string& pathSuffix, i
 		++i;
 	}
 
+	for (const auto& s : Snapshots)
+		MaxParticles = std::max(MaxParticles, s.size());
+
 	Loaded = true;
 }
 

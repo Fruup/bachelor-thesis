@@ -26,6 +26,7 @@ public:
 	std::vector<Snapshot> Snapshots;
 	std::vector<CompactNSearch::NeighborhoodSearch> NSearch;
 
+	size_t MaxParticles = 0;
 	bool Loaded = false;
 
 private:

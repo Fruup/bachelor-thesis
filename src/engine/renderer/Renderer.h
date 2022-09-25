@@ -5,15 +5,10 @@
 #include <glfw/glfw3.h>
 #include <vulkan/vulkan.hpp>
 
-#include "engine/renderer/objects/Buffer.h"
-#include "engine/renderer/objects/Shader.h"
-#include "engine/renderer/objects/Image.h"
-#include "engine/renderer/objects/DepthBuffer.h"
-#include "engine/camera/Camera3D.h"
-#include "engine/camera/CameraController3D.h"
-
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
+
+#include "ImGuiRenderPass.h"
 
 struct QueueFamilyIndices
 {
@@ -44,32 +39,10 @@ public:
 	bool Init(int width, int height, int pixelSize, const char* title);
 	void Exit();
 
-	virtual bool VInit() { return true; }
-	virtual void VExit() {}
-
-	virtual void Begin();
-	virtual void End();
-
-	virtual void Render() {}
-	virtual void RenderUI() {}
-
-	virtual void Update(float time)
-	{
-		CameraController.Update(time);
-	}
-
-	virtual void HandleEvent(Event& e)
-	{
-		CameraController.HandleEvent(e);
-	}
+	void Begin();
+	void End();
 
 	static uint32_t FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
-
-	GLFWwindow* GetWindow() { return Window; }
-	uint32_t GetCurrentSwapchainIndex() { return CurrentImageIndex; }
-	vk::Extent2D GetSwapchainExtent() { return SwapchainExtent; }
-
-	vk::CommandBuffer CreateSecondaryCommandBuffer();
 
 private:
 	bool InitVulkan();
@@ -83,12 +56,9 @@ private:
 	bool CreateSwapChain();
 	bool CreateSwapChainImageViews();
 
-	virtual bool CreateDepthBuffer();
-	virtual bool CreateRenderPass();
-	virtual bool CreateDescriptorPool();
-	virtual bool CreateFramebuffers();
-	virtual bool CreateCommandPool();
-	virtual bool CreateCommandBuffer();
+	bool CreateDescriptorPool();
+	bool CreateCommandPool();
+	bool CreateCommandBuffer();
 
 	bool CreateSemaphores();
 
@@ -122,22 +92,9 @@ public:
 	vk::DescriptorPool DescriptorPool;
 
 	vk::CommandBuffer CommandBuffer;
-	std::vector<vk::CommandBuffer> SecondaryCommandBuffers;
-
-	vk::RenderPass RenderPass;
 
 	vk::Semaphore ImageAvailableSemaphore;
 	vk::Semaphore RenderFinishedSemaphore;
 
-	DepthBuffer DepthBuffer;
-
-	// camera
-	Camera3D Camera;
-	CameraController3D CameraController;
-
-	// ImGui
-	uint32_t ImGuiSubpass = uint32_t(-1);
-
-protected:
-	Renderer();
+	ImGuiRenderPass ImGuiRenderPass;
 };

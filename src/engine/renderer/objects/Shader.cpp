@@ -47,10 +47,7 @@ size_t ReadHash(const AssetPathAbs& filename)
 	return 0;
 }
 
-bool Shader::Create(
-	const AssetPathRel& path,
-	vk::ShaderStageFlagBits stage,
-	const std::vector<DescriptorSetLayoutBinding>& descriptorSetLayoutBindings)
+bool Shader::Create(const AssetPathRel& path, vk::ShaderStageFlagBits stage)
 {
 	bool isEngineFile = path.IsEngineFile();
 
@@ -137,20 +134,10 @@ bool Shader::Create(
 
 	Stage = stage;
 
-	ShaderStageCreateInfo
+	CreateInfo
 		.setStage(Stage)
 		.setModule(Module)
 		.setPName("main");
-
-	for (auto& binding : descriptorSetLayoutBindings)
-		DescriptorSetLayoutBindings.push_back(
-			vk::DescriptorSetLayoutBinding{
-				binding.Binding,
-				binding.Type,
-				binding.Count,
-				binding.StageFlags ? binding.StageFlags : Stage,
-			}
-		);
 
 	SPDLOG_INFO("Loaded shader '{}'!", path);
 

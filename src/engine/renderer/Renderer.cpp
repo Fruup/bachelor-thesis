@@ -2,14 +2,14 @@
 #include "engine/renderer/Renderer.h"
 #include "engine/renderer/objects/Command.h"
 
-#include <fstream>
-
 void GlfwErrorCallback(int error_code, const char* description)
 {
 	SPDLOG_ERROR("GLFW ERROR {}: {}", error_code, description);
 }
 
 static vk::DescriptorPool ImGuiDescriptorPool;
+
+auto& Vulkan = Renderer::GetInstance();
 
 bool InitImGui()
 {
@@ -22,7 +22,7 @@ bool InitImGui()
 	vk::DescriptorPoolCreateInfo info;
 	info.setPoolSizes(poolSize).setMaxSets(1);
 
-	ImGuiDescriptorPool = Renderer::GetInstance().Device.createDescriptorPool(info);
+	ImGuiDescriptorPool = Vulkan.Device.createDescriptorPool(info);
 	if (!ImGuiDescriptorPool)
 	{
 		SPDLOG_ERROR("ImGui descriptor pool creation failed!");
@@ -39,26 +39,26 @@ bool InitImGui()
 	ImGui::StyleColorsDark();
 
 	// glfw
-	ImGui_ImplGlfw_InitForVulkan(Renderer::GetInstance().GetWindow(), false);
+	ImGui_ImplGlfw_InitForVulkan(Vulkan.Window, false);
 
 	// vulkan
 	ImGui_ImplVulkan_InitInfo initInfo{
-		Renderer::GetInstance().Instance,
-		Renderer::GetInstance().PhysicalDevice,
-		Renderer::GetInstance().Device,
-		Renderer::GetInstance().QueueIndices.GraphicsFamily.value(),
-		Renderer::GetInstance().GraphicsQueue,
+		Vulkan.Instance,
+		Vulkan.PhysicalDevice,
+		Vulkan.Device,
+		Vulkan.QueueIndices.GraphicsFamily.value(),
+		Vulkan.GraphicsQueue,
 		nullptr,
 		ImGuiDescriptorPool,
-		/* subpass */ Renderer::GetInstance().ImGuiSubpass,
-		uint32_t(Renderer::GetInstance().SwapchainImages.size()),
-		uint32_t(Renderer::GetInstance().SwapchainImages.size()),
+		/* subpass */ 0,
+		uint32_t(Vulkan.SwapchainImages.size()),
+		uint32_t(Vulkan.SwapchainImages.size()),
 		VK_SAMPLE_COUNT_1_BIT,
 		nullptr,
 		nullptr
 	};
 
-	if (!ImGui_ImplVulkan_Init(&initInfo, Renderer::GetInstance().RenderPass))
+	if (!ImGui_ImplVulkan_Init(&initInfo, Vulkan.ImGuiRenderPass.RenderPass))
 	{
 		SPDLOG_ERROR("ImGui Vulkan initialization failed!");
 		return false;
@@ -88,14 +88,14 @@ void ExitImGui()
 
 	if (ImGuiDescriptorPool)
 	{
-		Renderer::GetInstance().Device.destroyDescriptorPool(ImGuiDescriptorPool);
+		Vulkan.Device.destroyDescriptorPool(ImGuiDescriptorPool);
 		ImGuiDescriptorPool = nullptr;
 	}
 }
 
 bool CenterGlfwWindow()
 {
-	GLFWwindow* window = Renderer::GetInstance().GetWindow();
+	GLFWwindow* window = Vulkan.Window;
 
 	int sx = 0, sy = 0;
 	int px = 0, py = 0;
@@ -196,8 +196,7 @@ bool Renderer::Init(int width, int height, int pixelSize, const char* title)
 		return false;
 	}
 
-	if (!VInit())
-		return false;
+	ImGuiRenderPass.Init();
 
 	if (!InitImGui())
 	{
@@ -212,7 +211,7 @@ void Renderer::Exit()
 {
 	Device.waitIdle();
 
-	VExit();
+	ImGuiRenderPass.Exit();
 
 	ExitImGui();
 	ExitVulkan();
@@ -228,72 +227,35 @@ void Renderer::Begin()
 	// acquire image from swap chain
 	CurrentImageIndex = Device.acquireNextImageKHR(Swapchain, UINT64_MAX, ImageAvailableSemaphore).value;
 
-	// begin command buffer
-	{
-		CommandBuffer.reset();
-
-		vk::CommandBufferBeginInfo info;
-		CommandBuffer.begin(info);
-	}
-
-	// begin render pass
-	std::array<vk::ClearValue, 2> clearValues = {
-		// screen
-		vk::ClearColorValue(std::array<float, 4>{ .1f, .1f, .1f, 1 }),
-
-		// depth
-		vk::ClearDepthStencilValue{ 1.0f },
-
-		// positions
-		//vk::ClearColorValue(std::array<float, 4>{ 0, 0, 0, 0 }),
-
-		// normals
-		//vk::ClearColorValue(std::array<float, 4>{ 0, 0, 0, 0 }),
-	};
-
-	vk::RenderPassBeginInfo renderPassInfo;
-	renderPassInfo
-		.setClearValues(clearValues)
-		.setFramebuffer(SwapchainFramebuffers[GetCurrentSwapchainIndex()])
-		.setRenderArea({ { 0, 0 }, SwapchainExtent })
-		.setRenderPass(RenderPass);
-
-	CommandBuffer.beginRenderPass(
-		renderPassInfo,
-		vk::SubpassContents::eInline
-	);
-
 	// begin imgui
-	{
-		ImGui_ImplVulkan_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-	}
+	ImGui_ImplVulkan_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	// begin command buffer
+	CommandBuffer.reset();
+	CommandBuffer.begin({});
 }
 
 void Renderer::End()
 {
-	// end imgui
+	// render imgui pass
 	RenderImGui();
 
-	// end render pass and command buffer
-	CommandBuffer.endRenderPass();
-
+	// end command buffer
 	CommandBuffer.end();
 
 	// submit
-	{
-		vk::SubmitInfo info;
-		vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+	vk::SubmitInfo info;
+	vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
-		info.setWaitSemaphores(ImageAvailableSemaphore)
-			.setWaitDstStageMask(waitStage)
-			.setCommandBuffers(CommandBuffer)
-			.setSignalSemaphores(RenderFinishedSemaphore);
+	info.setWaitSemaphores(ImageAvailableSemaphore)
+		.setWaitDstStageMask(waitStage)
+		.setCommandBuffers(CommandBuffer)
+		.setSignalSemaphores(RenderFinishedSemaphore);
 
-		GraphicsQueue.submit(info);
-		GraphicsQueue.waitIdle();
-	}
+	GraphicsQueue.submit(info);
+	GraphicsQueue.waitIdle();
 
 	// PRESENT!
 	vk::PresentInfoKHR presentInfo;
@@ -313,8 +275,8 @@ void Renderer::End()
 
 void Renderer::RenderImGui()
 {
-	// next subpass
-	CommandBuffer.nextSubpass(vk::SubpassContents::eInline);
+	// start render pass
+	ImGuiRenderPass.Begin();
 
 	// collect render data
 	ImGui::Render();
@@ -324,24 +286,7 @@ void Renderer::RenderImGui()
 	// render
 	if (!minimized)
 		ImGui_ImplVulkan_RenderDrawData(drawData, CommandBuffer);
-}
 
-vk::CommandBuffer Renderer::CreateSecondaryCommandBuffer()
-{
-	vk::CommandBufferAllocateInfo info;
-	info.setCommandBufferCount(1)
-		.setCommandPool(CommandPool)
-		.setLevel(vk::CommandBufferLevel::eSecondary);
-
-	auto buffer = Device.allocateCommandBuffers(info).front();
-
-	if (!buffer)
-	{
-		SPDLOG_ERROR("Failed to allocate secondary command buffer!");
-		return {};
-	}
-
-	SecondaryCommandBuffers.push_back(buffer);
-
-	return buffer;
+	// end render pass
+	ImGuiRenderPass.End();
 }

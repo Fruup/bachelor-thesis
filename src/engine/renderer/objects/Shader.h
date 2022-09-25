@@ -2,15 +2,9 @@
 
 #include <vulkan/vulkan.hpp>
 
-class AssetPathRel;
+#include <engine/assets/AssetPath.h>
 
-struct DescriptorSetLayoutBinding
-{
-	uint32_t Binding;
-	uint32_t Count;
-	vk::DescriptorType Type;
-	vk::ShaderStageFlags StageFlags{};
-};
+class AssetPathRel;
 
 class Shader
 {
@@ -18,11 +12,7 @@ public:
 	Shader() = default;
 	Shader(const Shader& rhs) = default;
 
-	bool Create(
-		const AssetPathRel& path,
-		vk::ShaderStageFlagBits stage,
-		const std::vector<DescriptorSetLayoutBinding>& descriptorSetLayoutBindings);
-
+	bool Create(const AssetPathRel& path, vk::ShaderStageFlagBits stage);
 	void Destroy();
 
 	operator bool()
@@ -32,6 +22,5 @@ public:
 
 	vk::ShaderModule Module;
 	vk::ShaderStageFlagBits Stage;
-	vk::PipelineShaderStageCreateInfo ShaderStageCreateInfo;
-	std::vector<vk::DescriptorSetLayoutBinding> DescriptorSetLayoutBindings;
+	vk::PipelineShaderStageCreateInfo CreateInfo;
 };

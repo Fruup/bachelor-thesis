@@ -4,6 +4,8 @@
 
 class Command
 {
+	friend class OneTimeCommand;
+
 public:
 	static bool Init();
 	static void Exit();
@@ -13,4 +15,17 @@ public:
 
 private:
 	static vk::CommandPool Pool;
+};
+
+class OneTimeCommand
+{
+public:
+	OneTimeCommand();
+	~OneTimeCommand();
+
+	vk::CommandBuffer* operator -> () { return &CommandBuffer; }
+	operator vk::CommandBuffer& () { return CommandBuffer; }
+
+private:
+	vk::CommandBuffer CommandBuffer;
 };

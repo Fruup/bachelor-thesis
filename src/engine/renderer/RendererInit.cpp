@@ -425,6 +425,7 @@ bool Renderer::InitVulkan()
 {
 	DeviceExtensions = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
 	};
 
 	if (!CreateInstance()) return false;

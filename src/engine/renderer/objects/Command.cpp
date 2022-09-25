@@ -51,3 +51,34 @@ void Command::EndOneTimeCommand(const vk::CommandBuffer& cmd)
 	// free
 	Renderer::GetInstance().Device.freeCommandBuffers(Pool, cmd);
 }
+
+OneTimeCommand::OneTimeCommand()
+{
+	// create command buffer
+	vk::CommandBufferAllocateInfo allocInfo;
+	allocInfo
+		.setCommandBufferCount(1)
+		.setCommandPool(Command::Pool)
+		.setLevel(vk::CommandBufferLevel::ePrimary);
+	CommandBuffer = Renderer::GetInstance().Device.allocateCommandBuffers(allocInfo).front();
+
+	HZ_ASSERT(CommandBuffer, "Invalid one time command buffer!");
+
+	// begin buffer
+	vk::CommandBufferBeginInfo beginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit };
+	CommandBuffer.begin(beginInfo);
+}
+
+OneTimeCommand::~OneTimeCommand()
+{
+	CommandBuffer.end();
+
+	// submit
+	vk::SubmitInfo submitInfo;
+	submitInfo.setCommandBuffers(CommandBuffer);
+	Renderer::GetInstance().GraphicsQueue.submit(submitInfo);
+	Renderer::GetInstance().GraphicsQueue.waitIdle();
+
+	// free
+	Renderer::GetInstance().Device.freeCommandBuffers(Command::Pool, CommandBuffer);
+}
