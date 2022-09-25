@@ -2,7 +2,7 @@
 
 #include "app/Dataset.h"
 
-#include <engine/camera/EditorCameraController3D.h>
+#include <engine/camera/CameraController3D.h>
 
 class FluidRenderer
 {

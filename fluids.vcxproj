@@ -141,6 +141,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="src\app\AdvancedRenderer\AdvancedRenderer.h" />
     <ClInclude Include="src\app\Dataset.h" />
     <ClInclude Include="src\app\Kernel.h" />
     <ClInclude Include="src\app\renderer\AdvancedFluidRenderer.h" />
@@ -150,15 +151,10 @@
     <ClInclude Include="src\app\renderer\_AdvancedFluidRenderer.h" />
     <ClInclude Include="src\engine\Application.h" />
     <ClInclude Include="src\engine\Engine.h" />
-    <ClInclude Include="src\engine\assets\AssetHandle.h" />
     <ClInclude Include="src\engine\assets\AssetManager.h" />
     <ClInclude Include="src\engine\assets\AssetPath.h" />
-    <ClInclude Include="src\engine\assets\Sprite.h" />
-    <ClInclude Include="src\engine\camera\Camera2D.h" />
-    <ClInclude Include="src\engine\camera\EditorCameraController.h" />
-    <ClInclude Include="src\engine\camera\EditorCameraController3D.h" />
-    <ClInclude Include="src\engine\camera\GameCameraController.h" />
-    <ClInclude Include="src\engine\camera\ViewRect.h" />
+    <ClInclude Include="src\engine\camera\Camera3D.h" />
+    <ClInclude Include="src\engine\camera\CameraController3D.h" />
     <ClInclude Include="src\engine\events\Event.h" />
     <ClInclude Include="src\engine\events\EventManager.h" />
     <ClInclude Include="src\engine\events\Keyboard.h" />
@@ -166,8 +162,6 @@
     <ClInclude Include="src\engine\events\Mouse.h" />
     <ClInclude Include="src\engine\hzpch.h" />
     <ClInclude Include="src\engine\input\Input.h" />
-    <ClInclude Include="src\engine\math\Basic.h" />
-    <ClInclude Include="src\engine\math\Polygon.h" />
     <ClInclude Include="src\engine\renderer\Renderer.h" />
     <ClInclude Include="src\engine\renderer\objects\Buffer.h" />
     <ClInclude Include="src\engine\renderer\objects\Command.h" />
@@ -182,32 +176,27 @@
     <ClInclude Include="src\engine\utils\PerformanceTimer.h" />
     <ClInclude Include="src\engine\utils\Statistics.h" />
     <ClInclude Include="src\engine\utils\Utils.h" />
-    <ClInclude Include="src\engine\utils\YamlConverters.h" />
     <ClInclude Include="vendor\imgui\backends\imgui_impl_glfw.h" />
     <ClInclude Include="vendor\imgui\backends\imgui_impl_vulkan.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\app\AdvancedRenderer\AdvancedRenderer.cpp" />
     <ClCompile Include="src\app\Dataset.cpp" />
     <ClCompile Include="src\app\Kernel.cpp" />
     <ClCompile Include="src\app\renderer\AdvancedFluidRenderer.cpp" />
     <ClCompile Include="src\app\renderer\DepthFluidRenderer.cpp" />
     <ClCompile Include="src\app\renderer\PointFluidRenderer.cpp" />
     <ClCompile Include="src\engine\Application.cpp" />
-    <ClCompile Include="src\engine\assets\AssetHandle.cpp" />
     <ClCompile Include="src\engine\assets\AssetManager.cpp" />
     <ClCompile Include="src\engine\assets\AssetPath.cpp" />
-    <ClCompile Include="src\engine\camera\Camera2D.cpp" />
-    <ClCompile Include="src\engine\camera\EditorCameraController.cpp" />
-    <ClCompile Include="src\engine\camera\EditorCameraController3D.cpp" />
-    <ClCompile Include="src\engine\camera\GameCameraController.cpp" />
+    <ClCompile Include="src\engine\camera\Camera3D.cpp" />
+    <ClCompile Include="src\engine\camera\CameraController3D.cpp" />
     <ClCompile Include="src\engine\events\EventManager.cpp" />
     <ClCompile Include="src\engine\events\Layer.cpp" />
     <ClCompile Include="src\engine\hzpch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\engine\input\Input.cpp" />
-    <ClCompile Include="src\engine\math\Basic.cpp" />
-    <ClCompile Include="src\engine\math\Polygon.cpp" />
     <ClCompile Include="src\engine\renderer\Renderer.cpp" />
     <ClCompile Include="src\engine\renderer\RendererInit.cpp" />
     <ClCompile Include="src\engine\renderer\RendererInit2.cpp" />

@@ -1,11 +1,7 @@
 #pragma once
 
-#include "engine/camera/ViewRect.h"
-
 #undef near
 #undef far
-
-class Event;
 
 class Camera3D
 {
@@ -34,29 +30,4 @@ public:
 	glm::mat4 Projection, View;
 	glm::mat4 ProjectionView;
 	glm::mat4 InvView, InvProjection, InvProjectionView;
-};
-
-class EditorCameraController3D
-{
-public:
-	EditorCameraController3D(Camera3D& camera);
-	EditorCameraController3D(EditorCameraController3D&) = delete;
-
-	void Update(float time);
-	void HandleEvent(Event& e);
-
-	void SetPosition(const glm::vec3& position);
-	void SetOrientation(const glm::quat& orientation);
-
-	void ComputeMatrices();
-
-	Camera3D& Camera;
-
-	bool Panning = false;
-	bool Dragging = false;
-
-	glm::vec3 Position;
-	glm::quat Orientation;
-
-	glm::mat3 System;
 };

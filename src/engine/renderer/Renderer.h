@@ -9,7 +9,8 @@
 #include "engine/renderer/objects/Shader.h"
 #include "engine/renderer/objects/Image.h"
 #include "engine/renderer/objects/DepthBuffer.h"
-#include "engine/camera/EditorCameraController3D.h"
+#include "engine/camera/Camera3D.h"
+#include "engine/camera/CameraController3D.h"
 
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
@@ -132,7 +133,7 @@ public:
 
 	// camera
 	Camera3D Camera;
-	EditorCameraController3D CameraController;
+	CameraController3D CameraController;
 
 	// ImGui
 	uint32_t ImGuiSubpass = uint32_t(-1);

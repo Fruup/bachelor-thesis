@@ -1,30 +1,15 @@
 #include "engine/hzpch.h"
 
+#include "engine/camera/CameraController3D.h"
+
 #include "engine/events/EventManager.h"
 #include "engine/events/Mouse.h"
 #include "engine/input/Input.h"
-#include "engine/camera/EditorCameraController3D.h"
+#include "Camera3D.h"
 
 #include <glm/gtx/quaternion.hpp>
 
-Camera3D::Camera3D(float fov, float aspect, float near, float far) :
-	FOV(fov),
-	Near(near),
-	Far(far),
-	Aspect(aspect)
-{
-	Projection = glm::perspectiveLH(fov, aspect, near, far);
-	InvProjection = glm::inverse(Projection);
-}
-
-void Camera3D::ComputeMatrices()
-{
-	InvView = glm::inverse(View);
-	ProjectionView = Projection * View;
-	InvProjectionView = glm::inverse(ProjectionView);
-}
-
-EditorCameraController3D::EditorCameraController3D(Camera3D& camera) :
+CameraController3D::CameraController3D(Camera3D& camera) :
 	Camera(camera),
 	Position(glm::vec3()),
 	Orientation(glm::quatLookAtLH(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0)))
@@ -32,11 +17,11 @@ EditorCameraController3D::EditorCameraController3D(Camera3D& camera) :
 	ComputeMatrices();
 }
 
-void EditorCameraController3D::Update(float time)
+void CameraController3D::Update(float time)
 {
 }
 
-void EditorCameraController3D::HandleEvent(Event& e)
+void CameraController3D::HandleEvent(Event& e)
 {
 	EventDispatcher d(e);
 
@@ -78,21 +63,21 @@ void EditorCameraController3D::HandleEvent(Event& e)
 	ComputeMatrices();
 }
 
-void EditorCameraController3D::SetPosition(const glm::vec3& position)
+void CameraController3D::SetPosition(const glm::vec3& position)
 {
 	Position = position;
 
 	ComputeMatrices();
 }
 
-void EditorCameraController3D::SetOrientation(const glm::quat& orientation)
+void CameraController3D::SetOrientation(const glm::quat& orientation)
 {
 	Orientation = orientation;
 
 	ComputeMatrices();
 }
 
-void EditorCameraController3D::ComputeMatrices()
+void CameraController3D::ComputeMatrices()
 {
 	glm::mat4 orientation = glm::toMat4(Orientation);
 

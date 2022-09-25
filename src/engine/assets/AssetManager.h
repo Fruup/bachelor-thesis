@@ -2,16 +2,12 @@
 
 #include "engine/utils/Utils.h"
 #include "engine/assets/AssetPath.h"
-#include "engine/assets/AssetHandle.h"
-#include "engine/assets/Sprite.h"
 
 struct AssetManagerData
 {
 	std::filesystem::path EngineAssetsDirectory;
 	std::filesystem::path AssetsDirectory;
 	std::filesystem::path TempDirectory;
-
-	std::unordered_map<AssetIdentifier, Assets::Sprite> Sprites;
 };
 
 class AssetManager
@@ -37,15 +33,4 @@ public:
 	static std::string GetAssetPath(const std::filesystem::path& relativePath);
 
 	static AssetManagerData Data;
-
-	// getters
-
-	static Assets::Sprite& GetSprite(AssetHandleBase handle)
-	{
-		return Data.Sprites[handle];
-	}
-
-	// loaders
-
-	static AssetHandleBase LoadSprite(const AssetPathRel& relativePath, const char* name = nullptr);
 };
