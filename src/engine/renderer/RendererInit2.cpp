@@ -101,13 +101,21 @@ bool Renderer::IsDeviceSuitable(vk::PhysicalDevice device)
 
 	// features
 	vk::PhysicalDeviceFeatures features = device.getFeatures();
+	vk::PhysicalDeviceFeatures2 features2;
+	vk::PhysicalDeviceVulkan13Features vulkan13Features;
+
+	features2.setPNext(&vulkan13Features);
+	device.getFeatures2(&features2);
+
+	HZ_ASSERT(vulkan13Features.dynamicRendering, "Dynamic rendering is not supported!");
 
 	return (
 		FindQueueFamilies(device).IsComplete() &&
 		extensionsSupported &&
 		swapChainAdequate &&
-		features.samplerAnisotropy
-		);
+		features.samplerAnisotropy &&
+		vulkan13Features.dynamicRendering
+	);
 }
 
 QueueFamilyIndices Renderer::FindQueueFamilies(vk::PhysicalDevice device)
@@ -144,11 +152,6 @@ SwapChainSupportDetails Renderer::QuerySwapChainSupport(vk::PhysicalDevice devic
 	return details;
 }
 
-Renderer::Renderer():
-	CameraController(Camera)
-{
-}
-
 bool Renderer::CreateInstance()
 {
 	// Use validation layers if this is a debug build
@@ -156,36 +159,45 @@ bool Renderer::CreateInstance()
 	ValidationLayers.push_back("VK_LAYER_KHRONOS_validation");
 #endif
 
-	// VkApplicationInfo allows the programmer to specifiy some basic information about the
-	// program, which can be useful for layers and tools to provide more debug information.
-	vk::ApplicationInfo appInfo = vk::ApplicationInfo()
+	// initialize dynamic vulkan loader
+	vk::DynamicLoader loader;
+	PFN_vkGetInstanceProcAddr vkGetInstanceProcAddr =
+		loader.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
+	VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
+
+	// create application info
+	vk::ApplicationInfo appInfo;
+	appInfo
 		.setPApplicationName("Some Application")
 		.setApplicationVersion(1)
 		.setPEngineName("LunarG SDK")
 		.setEngineVersion(1)
 		.setApiVersion(VK_API_VERSION_1_0);
 
-	// VkInstanceCreateInfo is where the programmer specifies the layers and/or extensions that
-	// are needed.
 	uint32_t glfwExtensionCount;
 	const char** glfwExtensions =
 		glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-	vk::InstanceCreateInfo instInfo = vk::InstanceCreateInfo()
-		.setFlags(vk::InstanceCreateFlags())
+	std::vector<const char*> instanceExtensions = {
+		VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
+	};
+
+	for (uint32_t i = 0; i < glfwExtensionCount; i++)
+		instanceExtensions.push_back(glfwExtensions[i]);
+
+	vk::InstanceCreateInfo instInfo;
+	instInfo
+		.setFlags({})
 		.setPApplicationInfo(&appInfo)
-		.setEnabledExtensionCount(glfwExtensionCount)
-		.setPpEnabledExtensionNames(glfwExtensions)
+		.setPEnabledExtensionNames(instanceExtensions)
 		.setPEnabledLayerNames(ValidationLayers);
 
-	// Create the Vulkan instance.
-	try {
-		Instance = vk::createInstance(instInfo);
-	}
-	catch (std::exception e) {
-		std::cout << "Could not create a Vulkan instance: " << e.what() << std::endl;
-		return false;
-	}
+	Instance = vk::createInstance(instInfo);
+
+	HZ_ASSERT(Instance, "Unable to create Vulkan instance!");
+
+	// load instance specific functions
+	VULKAN_HPP_DEFAULT_DISPATCHER.init(Instance);
 
 	return true;
 }
@@ -240,7 +252,6 @@ bool Renderer::CreateLogicalDevice()
 		.setPEnabledLayerNames(ValidationLayers);
 
 	// enable dynamic rendering
-	// TODO: Check if this is still necessary.
 	vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature(true);
 	createInfo.setPNext(&dynamicRenderingFeature);
 
@@ -251,6 +262,9 @@ bool Renderer::CreateLogicalDevice()
 		SPDLOG_ERROR("Device creation failed!");
 		return false;
 	}
+
+	// load device specific functions
+	VULKAN_HPP_DEFAULT_DISPATCHER.init(Device);
 
 	// get graphics queue
 	GraphicsQueue = Device.getQueue(QueueIndices.GraphicsFamily.value(), 0);

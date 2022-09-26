@@ -9,8 +9,6 @@ void GlfwErrorCallback(int error_code, const char* description)
 
 static vk::DescriptorPool ImGuiDescriptorPool;
 
-auto& Vulkan = Renderer::GetInstance();
-
 bool InitImGui()
 {
 	// create descriptor pool
@@ -209,7 +207,8 @@ bool Renderer::Init(int width, int height, int pixelSize, const char* title)
 
 void Renderer::Exit()
 {
-	Device.waitIdle();
+	if (Device)
+		Device.waitIdle();
 
 	ImGuiRenderPass.Exit();
 
@@ -234,7 +233,9 @@ void Renderer::Begin()
 
 	// begin command buffer
 	CommandBuffer.reset();
-	CommandBuffer.begin({});
+
+	vk::CommandBufferBeginInfo beginInfo;
+	CommandBuffer.begin(beginInfo);
 }
 
 void Renderer::End()
@@ -246,15 +247,9 @@ void Renderer::End()
 	CommandBuffer.end();
 
 	// submit
-	vk::SubmitInfo info;
-	vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+	Submit(true, true);
 
-	info.setWaitSemaphores(ImageAvailableSemaphore)
-		.setWaitDstStageMask(waitStage)
-		.setCommandBuffers(CommandBuffer)
-		.setSignalSemaphores(RenderFinishedSemaphore);
-
-	GraphicsQueue.submit(info);
+	WaitForRenderingFinished();
 	GraphicsQueue.waitIdle();
 
 	// PRESENT!
@@ -271,6 +266,35 @@ void Renderer::End()
 	PresentationQueue.waitIdle();
 
 	CurrentImageIndex = UINT32_MAX;
+}
+
+void Renderer::Submit(bool wait, bool signal)
+{
+	vk::SubmitInfo info;
+	vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+
+	info
+		.setWaitSemaphores({})
+		.setCommandBuffers(CommandBuffer);
+
+	if (wait)
+	{
+		info.setWaitSemaphores(ImageAvailableSemaphore)
+			.setWaitDstStageMask(waitStage);
+	}
+
+	if (signal)
+		info.setSignalSemaphores(RenderFinishedSemaphore);
+
+	GraphicsQueue.submit(info, RenderFinishedFence);
+}
+
+void Renderer::WaitForRenderingFinished()
+{
+	// GraphicsQueue.waitIdle();
+
+	Device.waitForFences(RenderFinishedFence, true, UINT64_MAX);
+	Device.resetFences(RenderFinishedFence);
 }
 
 void Renderer::RenderImGui()

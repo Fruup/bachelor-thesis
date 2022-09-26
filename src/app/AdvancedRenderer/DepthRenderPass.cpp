@@ -7,10 +7,6 @@
 #include <engine/renderer/objects/Shader.h>
 
 // --------------------------------------------------------------------
-
-auto& Vulkan = Renderer::GetInstance();
-
-// --------------------------------------------------------------------
 // PUBLIC FUNCTIONS
 
 DepthRenderPass::DepthRenderPass(AdvancedRenderer& renderer) :
@@ -22,11 +18,15 @@ void DepthRenderPass::Init()
 {
 	CreateShaders();
 
+	CreateDescriptorSetLayout();
+	CreateDescriptorSet();
+
 	CreatePipelineLayout();
 	CreatePipeline();
 
-	CreateDescriptorSetLayout();
-	CreateDescriptorSet();
+	CreateUniformBuffer();
+
+	UpdateDescriptorSets();
 }
 
 void DepthRenderPass::Exit()
@@ -38,6 +38,8 @@ void DepthRenderPass::Exit()
 	
 	VertexShader.Destroy();
 	FragmentShader.Destroy();
+
+	UniformBuffer.Destroy();
 }
 
 void DepthRenderPass::Begin()
@@ -56,7 +58,6 @@ void DepthRenderPass::Begin()
 
 	vk::RenderingInfo renderingInfo;
 	renderingInfo
-		.setFlags(vk::RenderingFlagBits::eResuming)
 		.setPDepthAttachment(&depthAttachment)
 		.setLayerCount(1)
 		.setRenderArea(vk::Rect2D({ 0, 0 }, Vulkan.SwapchainExtent ))
@@ -70,13 +71,12 @@ void DepthRenderPass::Begin()
 		Pipeline
 	);
 
-	vk::DeviceSize offset = 0;
 	Vulkan.CommandBuffer.bindDescriptorSets(
 		vk::PipelineBindPoint::eGraphics,
 		PipelineLayout,
 		0,
 		DescriptorSet,
-		offset
+		{}
 	);
 }
 
@@ -91,11 +91,11 @@ void DepthRenderPass::End()
 void DepthRenderPass::CreateShaders()
 {
 	VertexShader.Create(
-		"shaders/advanced/depthPass.vert",
+		"shaders/advanced/depth.vert",
 		vk::ShaderStageFlagBits::eVertex);
 
 	FragmentShader.Create(
-		"shaders/advanced/depthPass.frag",
+		"shaders/advanced/depth.frag",
 		vk::ShaderStageFlagBits::eFragment);
 }
 
@@ -200,7 +200,7 @@ void DepthRenderPass::CreatePipeline()
 		.setRenderPass(nullptr);
 
 	auto r = Vulkan.Device.createGraphicsPipeline({}, pipelineCreateInfo);
-	HZ_ASSERT(r.result != vk::Result::eSuccess, "Pipeline creation failed!");
+	HZ_ASSERT(r.result == vk::Result::eSuccess, "Pipeline creation failed!");
 	Pipeline = r.value;
 }
 
@@ -229,6 +229,16 @@ void DepthRenderPass::CreateDescriptorSet()
 	DescriptorSet = r.front();
 }
 
+void DepthRenderPass::CreateUniformBuffer()
+{
+	UniformBuffer.Create(
+		sizeof(Uniforms),
+		vk::BufferUsageFlagBits::eUniformBuffer,
+		vk::MemoryPropertyFlagBits::eHostVisible |
+		vk::MemoryPropertyFlagBits::eHostCoherent
+	);
+}
+
 void DepthRenderPass::UpdateUniforms()
 {
 	Uniforms.Projection = Renderer.Camera.GetProjection();
@@ -237,6 +247,30 @@ void DepthRenderPass::UpdateUniforms()
 
 	// copy
 	UniformBuffer.Map(&Uniforms, sizeof(Uniforms));
+}
+
+void DepthRenderPass::UpdateDescriptorSets()
+{
+	vk::DescriptorBufferInfo bufferInfo;
+	bufferInfo
+		.setBuffer(UniformBuffer)
+		.setOffset(0)
+		.setRange(VK_WHOLE_SIZE);
+
+	vk::WriteDescriptorSet writeUniform;
+	writeUniform
+		.setBufferInfo(bufferInfo)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+		.setDstArrayElement(0)
+		.setDstBinding(0)
+		.setDstSet(DescriptorSet);
+
+	std::array<vk::WriteDescriptorSet, 1> writes = {
+		writeUniform
+	};
+
+	Vulkan.Device.updateDescriptorSets(writes, {});
 }
 
 // --------------------------------------------------------------------

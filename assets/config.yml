@@ -8,6 +8,7 @@ display:
   showDemoWindow: false
 
 # dataset: "bunny"
-dataset: "emitter"
+# dataset: "emitter"
 # dataset: "deformables"
 # dataset: "motor"
+dataset: "small"

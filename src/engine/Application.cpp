@@ -122,33 +122,33 @@ void Application::RenderImGui()
 
 void Application::Run()
 {
-	float delta = 1.0f / 60.0f;
+	//float delta = 1.0f / 60.0f;
 
-	while (Data.Running)
-	{
-		GlobalStatistics.Begin();
+	//while (Data.Running)
+	//{
+	//	GlobalStatistics.Begin();
 
-		// update
-		glfwPollEvents();
-		Input::Update(delta);
-		OnUpdate(delta);
+	//	// update
+	//	glfwPollEvents();
+	//	Input::Update(delta);
+	//	OnUpdate(delta);
 
-		Renderer::GetInstance().Update(delta);
+	//	Renderer::GetInstance().Update(delta);
 
-		Renderer::GetInstance().Begin();
+	//	Renderer::GetInstance().Begin();
 
-		Renderer::GetInstance().Render();
+	//	Renderer::GetInstance().Render();
 
-		RenderImGui();
-		Renderer::GetInstance().RenderUI();
-		GlobalStatistics.ImGuiRender();
+	//	RenderImGui();
+	//	Renderer::GetInstance().RenderUI();
+	//	GlobalStatistics.ImGuiRender();
 
-		OnRender(delta);
+	//	OnRender(delta);
 
-		Renderer::GetInstance().End();
+	//	Renderer::GetInstance().End();
 
-		// close window requested?
-		if (glfwWindowShouldClose(Renderer::GetInstance().GetWindow()))
-			Data.Running = false;
-	}
+	//	// close window requested?
+	//	if (glfwWindowShouldClose(Renderer::GetInstance().GetWindow()))
+	//		Data.Running = false;
+	//}
 }

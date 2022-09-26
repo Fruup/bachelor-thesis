@@ -2,15 +2,18 @@
 #include <engine/renderer/objects/DepthBuffer.h>
 #include <engine/renderer/Renderer.h>
 
+//auto& Vulkan = Renderer::GetInstance();
+
 bool DepthBuffer::Create()
 {
 	// image
 	{
 		vk::ImageCreateInfo info;
 		info.setExtent({
-				Renderer::GetInstance().GetSwapchainExtent().width,
-				Renderer::GetInstance().GetSwapchainExtent().height,
-				1 })
+				Vulkan.SwapchainExtent.width,
+				Vulkan.SwapchainExtent.height,
+				1
+			})
 			.setFormat(vk::Format::eD32Sfloat)
 			.setQueueFamilyIndices(Renderer::GetInstance().QueueIndices.GraphicsFamily.value())
 			.setImageType(vk::ImageType::e2D)

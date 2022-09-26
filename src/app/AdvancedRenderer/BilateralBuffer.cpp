@@ -7,7 +7,7 @@
 
 // -------------------------------------------------------------------------
 
-auto& Vulkan = Renderer::GetInstance();
+//auto& Vulkan = Renderer::GetInstance();
 
 // -------------------------------------------------------------------------
 // PUBLIC FUNCTIONS
@@ -23,6 +23,7 @@ void BilateralBuffer::Init(_Type type)
 			Usage = vk::ImageUsageFlagBits::eColorAttachment;
 			Format = vk::Format::eR32G32B32A32Sfloat;
 			AspectFlags = vk::ImageAspectFlagBits::eColor;
+			//GPU.Layout = vk::ImageLayout::eColorAttachmentOptimal;
 			Size =
 				4 * sizeof(float) *
 				Vulkan.SwapchainExtent.width *
@@ -34,12 +35,18 @@ void BilateralBuffer::Init(_Type type)
 			Usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
 			Format = vk::Format::eD32Sfloat;
 			AspectFlags = vk::ImageAspectFlagBits::eDepth;
+			//GPU.Layout = vk::ImageLayout::eDepthAttachmentOptimal;
 			Size =
 				sizeof(float) *
 				Vulkan.SwapchainExtent.width *
 				Vulkan.SwapchainExtent.height;
 		} break;
+
+		default:
+			HZ_ASSERT(false, "");
 	}
+
+	GPU.Layout = vk::ImageLayout::eUndefined;
 
 	CreateCPUSide();
 	CreateGPUSide();
@@ -55,75 +62,6 @@ void BilateralBuffer::Exit()
 	Vulkan.Device.freeMemory(GPU.Memory);
 }
 
-void BilateralBuffer::PrepareGPULayoutForRendering(vk::CommandBuffer& cmd)
-{
-	vk::ImageLayout oldLayout = GPU.Layout;
-	switch (Type)
-	{
-		case Color: GPU.Layout = vk::ImageLayout::eColorAttachmentOptimal; break;
-		case Depth: GPU.Layout = vk::ImageLayout::eDepthAttachmentOptimal; break;
-	}
-
-	vk::AccessFlags accessMask;
-	switch (Type)
-	{
-		case Color: accessMask = vk::AccessFlagBits::eColorAttachmentWrite; break;
-		case Depth: accessMask = vk::AccessFlagBits::eDepthStencilAttachmentWrite; break;
-	}
-
-	vk::ImageMemoryBarrier barrier;
-	barrier
-		.setImage(GPU.Image)
-		.setOldLayout(oldLayout)
-		.setNewLayout(GPU.Layout)
-		.setDstAccessMask(accessMask)
-		.setSubresourceRange(vk::ImageSubresourceRange(
-			AspectFlags, // aspect mask
-			0, // mip map level
-			1, // level count
-			0, // base array layer
-			1  // layer count
-		));
-
-	cmd.pipelineBarrier(
-		vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
-		vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
-		{},
-		{}, // memory barriers
-		{}, // buffer memory barriers
-		barrier // image memory barrier
-	);
-}
-
-void BilateralBuffer::PrepareGPULayoutForCopying(vk::CommandBuffer& cmd)
-{
-	vk::ImageLayout oldLayout = GPU.Layout;
-	GPU.Layout = vk::ImageLayout::eTransferSrcOptimal;
-
-	vk::ImageMemoryBarrier barrier;
-	barrier
-		.setImage(GPU.Image)
-		.setOldLayout(oldLayout)
-		.setNewLayout(GPU.Layout)
-		.setDstAccessMask(vk::AccessFlagBits::eTransferRead)
-		.setSubresourceRange(vk::ImageSubresourceRange(
-			AspectFlags, // aspect mask
-			0, // mip map level
-			1, // level count
-			0, // base array layer
-			1  // layer count
-		));
-
-	cmd.pipelineBarrier(
-		vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
-		vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
-		{},
-		{}, // memory barriers
-		{}, // buffer memory barriers
-		barrier // image memory barrier
-	);
-}
-
 void BilateralBuffer::CopyToGPU()
 {
 	OneTimeCommand cmd;
@@ -137,6 +75,7 @@ void BilateralBuffer::CopyToGPU()
 		.setImageSubresource(vk::ImageSubresourceLayers(
 			AspectFlags, // aspect mask
 			0, // mip map level
+			0, // base layer
 			1 // layer count
 		))
 		.setImageExtent(vk::Extent3D(
@@ -165,6 +104,7 @@ void BilateralBuffer::CopyFromGPU()
 		.setImageSubresource(vk::ImageSubresourceLayers(
 			AspectFlags, // aspect mask
 			0, // mip map level
+			0, // base layer
 			1 // layer count
 		))
 		.setImageExtent(vk::Extent3D(
@@ -175,15 +115,13 @@ void BilateralBuffer::CopyFromGPU()
 
 	cmd->copyImageToBuffer(
 		GPU.Image,
-		vk::ImageLayout::eTransferDstOptimal,
+		vk::ImageLayout::eTransferSrcOptimal,
 		CPU.Buffer,
 		region);
 }
 
 void* BilateralBuffer::MapCPUMemory(vk::DeviceSize offset, vk::DeviceSize size)
 {
-	if (!size) size = Size;
-
 	return Vulkan.Device.mapMemory(CPU.Memory, offset, size);
 }
 
@@ -253,6 +191,23 @@ void BilateralBuffer::CreateGPUSide()
 
 	GPU.Image = Vulkan.Device.createImage(imageCreateInfo);
 
+	// memory
+
+	auto requirements = Vulkan.Device.getImageMemoryRequirements(GPU.Image);
+
+	vk::MemoryAllocateInfo allocInfo;
+	allocInfo.setAllocationSize(requirements.size)
+		.setMemoryTypeIndex(Vulkan.FindMemoryType(
+			requirements.memoryTypeBits,
+			vk::MemoryPropertyFlagBits::eDeviceLocal
+		));
+
+	GPU.Memory = Vulkan.Device.allocateMemory(allocInfo);
+
+	// bind memory
+
+	Vulkan.Device.bindImageMemory(GPU.Image, GPU.Memory, 0);
+
 	// view
 
 	vk::ImageViewCreateInfo viewCreateInfo;
@@ -270,21 +225,52 @@ void BilateralBuffer::CreateGPUSide()
 		));
 
 	GPU.ImageView = Vulkan.Device.createImageView(viewCreateInfo);
+}
 
-	// memory
+void BilateralBuffer::TransitionLayout(vk::ImageLayout newLayout,
+									   vk::AccessFlags accessMask,
+									   vk::PipelineStageFlags stage)
+{
+	if (GPU.Layout == newLayout) return;
 
-	auto requirements = Vulkan.Device.getImageMemoryRequirements(GPU.Image);
+	vk::ImageLayout oldLayout = GPU.Layout;
+	GPU.Layout = newLayout;
 
-	vk::MemoryAllocateInfo allocInfo;
-	allocInfo.setAllocationSize(requirements.size)
-		.setMemoryTypeIndex(Vulkan.FindMemoryType(
-			requirements.memoryTypeBits,
-			vk::MemoryPropertyFlagBits::eDeviceLocal
+	/*vk::AccessFlagBits accessMask;
+	switch (newLayout)
+	{
+		case vk::ImageLayout::eTransferDstOptimal:
+			accessMask = vk::AccessFlagBits::eTransferWrite;
+			break;
+
+		case vk::ImageLayout::eTransferSrcOptimal:
+			accessMask = vk::AccessFlagBits::eTransferRead;
+			break;
+
+		default:
+			HZ_ASSERT(false, "");
+	}*/
+
+	vk::ImageMemoryBarrier barrier;
+	barrier
+		.setImage(GPU.Image)
+		.setOldLayout(oldLayout)
+		.setNewLayout(GPU.Layout)
+		.setDstAccessMask(accessMask)
+		.setSubresourceRange(vk::ImageSubresourceRange(
+			AspectFlags, // aspect mask
+			0, // mip map level
+			1, // level count
+			0, // base array layer
+			1  // layer count
 		));
 
-	GPU.Memory = Vulkan.Device.allocateMemory(allocInfo);
-
-	// bind memory
-
-	Vulkan.Device.bindImageMemory(GPU.Image, GPU.Memory, 0);
+	Vulkan.CommandBuffer.pipelineBarrier(
+		stage,
+		stage,
+		{}, // dependency flags
+		{}, // memory barriers
+		{}, // buffer memory barriers
+		barrier // image memory barrier
+	);
 }

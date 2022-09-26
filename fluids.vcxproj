@@ -142,13 +142,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\app\AdvancedRenderer\AdvancedRenderer.h" />
+    <ClInclude Include="src\app\AdvancedRenderer\BilateralBuffer.h" />
+    <ClInclude Include="src\app\AdvancedRenderer\CompositionRenderPass.h" />
+    <ClInclude Include="src\app\AdvancedRenderer\DepthRenderPass.h" />
     <ClInclude Include="src\app\Dataset.h" />
     <ClInclude Include="src\app\Kernel.h" />
-    <ClInclude Include="src\app\renderer\AdvancedFluidRenderer.h" />
-    <ClInclude Include="src\app\renderer\DepthFluidRenderer.h" />
-    <ClInclude Include="src\app\renderer\FluidRenderer.h" />
-    <ClInclude Include="src\app\renderer\PointFluidRenderer.h" />
-    <ClInclude Include="src\app\renderer\_AdvancedFluidRenderer.h" />
     <ClInclude Include="src\engine\Application.h" />
     <ClInclude Include="src\engine\Engine.h" />
     <ClInclude Include="src\engine\assets\AssetManager.h" />
@@ -162,6 +160,7 @@
     <ClInclude Include="src\engine\events\Mouse.h" />
     <ClInclude Include="src\engine\hzpch.h" />
     <ClInclude Include="src\engine\input\Input.h" />
+    <ClInclude Include="src\engine\renderer\ImGuiRenderPass.h" />
     <ClInclude Include="src\engine\renderer\Renderer.h" />
     <ClInclude Include="src\engine\renderer\objects\Buffer.h" />
     <ClInclude Include="src\engine\renderer\objects\Command.h" />
@@ -181,11 +180,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\app\AdvancedRenderer\AdvancedRenderer.cpp" />
+    <ClCompile Include="src\app\AdvancedRenderer\BilateralBuffer.cpp" />
+    <ClCompile Include="src\app\AdvancedRenderer\CompositionRenderPass.cpp" />
+    <ClCompile Include="src\app\AdvancedRenderer\DepthRenderPass.cpp" />
     <ClCompile Include="src\app\Dataset.cpp" />
     <ClCompile Include="src\app\Kernel.cpp" />
-    <ClCompile Include="src\app\renderer\AdvancedFluidRenderer.cpp" />
-    <ClCompile Include="src\app\renderer\DepthFluidRenderer.cpp" />
-    <ClCompile Include="src\app\renderer\PointFluidRenderer.cpp" />
     <ClCompile Include="src\engine\Application.cpp" />
     <ClCompile Include="src\engine\assets\AssetManager.cpp" />
     <ClCompile Include="src\engine\assets\AssetPath.cpp" />
@@ -197,6 +196,7 @@
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\engine\input\Input.cpp" />
+    <ClCompile Include="src\engine\renderer\ImGuiRenderPass.cpp" />
     <ClCompile Include="src\engine\renderer\Renderer.cpp" />
     <ClCompile Include="src\engine\renderer\RendererInit.cpp" />
     <ClCompile Include="src\engine\renderer\RendererInit2.cpp" />

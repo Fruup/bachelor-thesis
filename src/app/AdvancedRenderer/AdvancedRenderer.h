@@ -7,13 +7,9 @@
 #include "app/Dataset.h"
 #include "BilateralBuffer.h"
 #include "DepthRenderPass.h"
+#include "CompositionRenderPass.h"
 
 class Event;
-
-class FluidApp
-{
-
-};
 
 class AdvancedRenderer
 {
@@ -48,6 +44,7 @@ private:
 
 public:
 	DepthRenderPass DepthRenderPass;
+	CompositionRenderPass CompositionRenderPass;
 
 	BilateralBuffer DepthBuffer;
 	BilateralBuffer PositionsBuffer;
@@ -58,7 +55,7 @@ public:
 	Dataset* Dataset;
 	int CurrentFrame = 0;
 
-	size_t NumVertices = 0;
+	uint32_t NumVertices = 0;
 
 	Camera3D Camera;
 	CameraController3D CameraController;

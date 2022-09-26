@@ -25,7 +25,11 @@ private:
 	void CreateDescriptorSetLayout();
 	void CreateDescriptorSet();
 
+	void CreateUniformBuffer();
+
 	void UpdateUniforms();
+
+	void UpdateDescriptorSets();
 
 public:
 	vk::Pipeline Pipeline;

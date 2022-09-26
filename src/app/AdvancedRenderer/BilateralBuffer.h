@@ -18,14 +18,15 @@ public:
 	void Init(_Type type);
 	void Exit();
 
-	void PrepareGPULayoutForRendering(vk::CommandBuffer& cmd);
-	void PrepareGPULayoutForCopying(vk::CommandBuffer& cmd);
-
 	void CopyToGPU();
 	void CopyFromGPU();
 
-	void* MapCPUMemory(vk::DeviceSize offset = 0, vk::DeviceSize size = 0);
+	void* MapCPUMemory(vk::DeviceSize offset = 0, vk::DeviceSize size = VK_WHOLE_SIZE);
 	void UnmapCPUMemory();
+
+	void TransitionLayout(vk::ImageLayout newLayout,
+						  vk::AccessFlags accessMask,
+						  vk::PipelineStageFlags stage);
 
 private:
 	void CreateCPUSide();

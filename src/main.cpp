@@ -4,18 +4,23 @@
 #include <engine/events/EventManager.h>
 #include <engine/renderer/Renderer.h>
 
-#include "app/Dataset.h"
+#include <engine/utils/Statistics.h>
+#include <engine/input/Input.h>
 
-#include "app/renderer/AdvancedFluidRenderer.h"
-#include "app/renderer/PointFluidRenderer.h"
-#include "app/renderer/DepthFluidRenderer.h"
+#include "app/Dataset.h"
+#include "app/AdvancedRenderer/AdvancedRenderer.h"
+
+auto g_Renderer = std::make_unique<AdvancedRenderer>();
 
 //static std::unique_ptr<PointFluidRenderer> g_FluidRenderer(new PointFluidRenderer);
-static std::unique_ptr<DepthFluidRenderer> g_FluidRenderer(new DepthFluidRenderer);
+//static std::unique_ptr<DepthFluidRenderer> g_FluidRenderer(new DepthFluidRenderer);
+
+//auto& Vulkan = Renderer::GetInstance();
 
 Renderer& Renderer::GetInstance()
 {
-	return *g_FluidRenderer;
+	static Renderer _r;
+	return _r;
 }
 
 class App : public Application
@@ -42,8 +47,8 @@ public:
 		if (!dataset->Loaded)
 			return false;
 
-		// init fluid renderer
-		g_FluidRenderer->SetDataset(dataset);
+		// init renderer
+		g_Renderer->Init(dataset);
 
 		// add application layer
 		EventManager::LayerStack.AddLayer(new AppLayer);
@@ -70,7 +75,7 @@ public:
 
 		void HandleEvent(Event& e)
 		{
-			g_FluidRenderer->HandleEvent(e);
+			g_Renderer->HandleEvent(e);
 		}
 	};
 };
@@ -79,8 +84,37 @@ int main()
 {
 	App app;
 	app.Init();
-	app.Run();
+	//app.Run();
+
+	float delta = 1.0f / 60.0f;
+
+	while (app.Data.Running)
+	{
+		GlobalStatistics.Begin();
+
+		// input
+		glfwPollEvents();
+		Input::Update(delta);
+
+		// update
+		g_Renderer->Update(delta);
+
+		// render
+		Vulkan.Begin();
+
+		g_Renderer->RenderUI();
+		GlobalStatistics.ImGuiRender();
+
+		g_Renderer->Render();
+
+		Vulkan.End();
+
+		// close window requested?
+		if (glfwWindowShouldClose(Vulkan.Window))
+			app.Data.Running = false;
+	}
+
 	app.Exit();
 
-	g_FluidRenderer.reset();
+	g_Renderer.reset();
 }

@@ -14,8 +14,8 @@ bool Pipeline::Create(
 {
 	// shader stages
 	std::vector<vk::PipelineShaderStageCreateInfo> stages(shaders.size());
-	for (size_t i = 0; i < stages.size(); i++)
-		stages[i] = shaders[i].ShaderStageCreateInfo;
+	/*for (size_t i = 0; i < stages.size(); i++)
+		stages[i] = shaders[i].ShaderStageCreateInfo;*/
 
 	// vertex input
 	vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
@@ -91,13 +91,13 @@ bool Pipeline::Create(
 	// create descriptor set layout
 	{
 		std::vector<vk::DescriptorSetLayoutBinding> bindings;
-		for (auto& shader : shaders)
+		/*for (auto& shader : shaders)
 		{
 			for (auto& b : shader.DescriptorSetLayoutBindings)
 			{
 				bindings.push_back(b);
 			}
-		}
+		}*/
 
 		vk::DescriptorSetLayoutCreateInfo info{ {}, bindings };
 		m_DescriptorSetLayout = Renderer::GetInstance().Device.createDescriptorSetLayout(info);
@@ -127,7 +127,7 @@ bool Pipeline::Create(
 	vk::GraphicsPipelineCreateInfo info;
 	info.setLayout(m_Layout)
 		.setStages(stages)
-		.setRenderPass(Renderer::GetInstance().RenderPass)
+		//.setRenderPass(Renderer::GetInstance().RenderPass)
 		.setSubpass(subpass)
 		.setPVertexInputState(&vertexInputInfo)
 		.setPInputAssemblyState(&assemblyInfo)

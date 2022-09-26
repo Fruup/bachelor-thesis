@@ -27,198 +27,6 @@ bool Renderer::CreateSwapChainImageViews()
 	return true;
 }
 
-bool Renderer::CreateDepthBuffer()
-{
-	return DepthBuffer.Create();
-}
-
-bool Renderer::CreateRenderPass()
-{
-	const uint32_t screenIndex = 0;
-	const uint32_t depthIndex = 1;
-	const uint32_t positionsIndex = 2;
-	const uint32_t normalsIndex = 3;
-
-	// attachments
-	vk::AttachmentDescription screenAttachment;
-	screenAttachment
-		.setFormat(SwapchainFormat)
-		.setSamples(vk::SampleCountFlagBits::e1)
-		.setLoadOp(vk::AttachmentLoadOp::eClear)
-		.setStoreOp(vk::AttachmentStoreOp::eStore)
-		.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-		.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-		.setInitialLayout(vk::ImageLayout::eUndefined)
-		.setFinalLayout(vk::ImageLayout::ePresentSrcKHR);
-
-	vk::AttachmentDescription depthAttachment;
-	depthAttachment
-		.setFormat(vk::Format::eD32Sfloat)
-		.setSamples(vk::SampleCountFlagBits::e1)
-		.setLoadOp(vk::AttachmentLoadOp::eClear)
-		.setStoreOp(vk::AttachmentStoreOp::eStore)
-		.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-		.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-		.setInitialLayout(vk::ImageLayout::eUndefined)
-		//.setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
-		.setFinalLayout(vk::ImageLayout::eTransferSrcOptimal);
-
-	vk::AttachmentDescription positionsAttachment;
-	positionsAttachment
-		.setFormat(vk::Format::eR32G32B32A32Sfloat)
-		.setSamples(vk::SampleCountFlagBits::e1)
-		.setLoadOp(vk::AttachmentLoadOp::eClear)
-		.setStoreOp(vk::AttachmentStoreOp::eStore)
-		.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-		.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-		.setInitialLayout(vk::ImageLayout::eUndefined)
-		.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
-
-	vk::AttachmentDescription normalsAttachment;
-	normalsAttachment
-		.setFormat(vk::Format::eR32G32B32A32Sfloat)
-		.setSamples(vk::SampleCountFlagBits::e1)
-		.setLoadOp(vk::AttachmentLoadOp::eClear)
-		.setStoreOp(vk::AttachmentStoreOp::eStore)
-		.setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-		.setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-		.setInitialLayout(vk::ImageLayout::eUndefined)
-		.setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal);
-
-	// subpasses
-
-	vk::SubpassDescription depthSubpass;
-	{
-		vk::AttachmentReference depth(depthIndex, vk::ImageLayout::eDepthStencilAttachmentOptimal);
-
-		depthSubpass
-			.setPDepthStencilAttachment(&depth)
-			.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
-	}
-
-	vk::SubpassDescription rayMarchSubpass;
-	{
-		vk::AttachmentReference input(depthIndex, vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal);
-
-		vk::AttachmentReference color[] = {
-			vk::AttachmentReference(positionsIndex, vk::ImageLayout::eColorAttachmentOptimal),
-			vk::AttachmentReference(normalsIndex, vk::ImageLayout::eColorAttachmentOptimal),
-		};
-
-		rayMarchSubpass
-			.setInputAttachments(input)
-			.setColorAttachments(color)
-			.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
-	}
-
-	vk::SubpassDescription compositionSubpass;
-	{
-		vk::AttachmentReference input[] = {
-			vk::AttachmentReference(positionsIndex, vk::ImageLayout::eShaderReadOnlyOptimal),
-			vk::AttachmentReference(normalsIndex, vk::ImageLayout::eShaderReadOnlyOptimal),
-		};
-
-		vk::AttachmentReference color[] = {
-			vk::AttachmentReference(screenIndex, vk::ImageLayout::eColorAttachmentOptimal),
-		};
-
-		compositionSubpass
-			.setInputAttachments(input)
-			.setColorAttachments(color)
-			.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
-	}
-
-	vk::SubpassDescription imguiSubpass;
-	{
-		vk::AttachmentReference color[] = {
-			vk::AttachmentReference(screenIndex, vk::ImageLayout::eColorAttachmentOptimal),
-		};
-
-		imguiSubpass
-			.setColorAttachments(color)
-			.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
-	}
-
-	std::array<vk::SubpassDescription, 4> subpasses = {
-		depthSubpass,
-		rayMarchSubpass,
-		compositionSubpass,
-		imguiSubpass,
-	};
-
-	// dependencies
-	vk::SubpassDependency depthDependency;
-	depthDependency
-		.setSrcSubpass(VK_SUBPASS_EXTERNAL)
-		.setDstSubpass(0)
-		.setSrcStageMask(vk::PipelineStageFlagBits::eAllGraphics)
-		.setDstStageMask(vk::PipelineStageFlagBits::eEarlyFragmentTests)
-		.setSrcAccessMask(vk::AccessFlagBits::eNone)
-		.setDstAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentWrite)
-		.setDependencyFlags(vk::DependencyFlagBits::eByRegion);
-
-	vk::SubpassDependency rayMarchDependency;
-	rayMarchDependency
-		.setSrcSubpass(0)
-		.setDstSubpass(1)
-		.setSrcStageMask(vk::PipelineStageFlagBits::eEarlyFragmentTests)
-		.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-		.setSrcAccessMask(vk::AccessFlagBits::eDepthStencilAttachmentWrite)
-		.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-		.setDependencyFlags(vk::DependencyFlagBits::eByRegion);
-
-	vk::SubpassDependency compositionDependency;
-	compositionDependency
-		.setSrcSubpass(1)
-		.setDstSubpass(2)
-		.setSrcStageMask(vk::PipelineStageFlagBits::eAllGraphics)
-		.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-		.setSrcAccessMask(vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eMemoryRead | vk::AccessFlagBits::eColorAttachmentWrite)
-		.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-		.setDependencyFlags(vk::DependencyFlagBits::eByRegion);
-
-	vk::SubpassDependency imguiDependency;
-	imguiDependency
-		.setSrcSubpass(2)
-		.setDstSubpass(3)
-		.setSrcStageMask(vk::PipelineStageFlagBits::eAllGraphics)
-		.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
-		.setSrcAccessMask(vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eColorAttachmentWrite)
-		.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-		.setDependencyFlags(vk::DependencyFlagBits::eByRegion);
-
-	std::array<vk::SubpassDependency, 4> dependencies = {
-		depthDependency,
-		rayMarchDependency,
-		compositionDependency,
-		imguiDependency,
-	};
-
-	// create render pass
-	{
-		std::vector<vk::AttachmentDescription> attachments = {
-			screenAttachment,
-			depthAttachment,
-			positionsAttachment,
-			normalsAttachment,
-		};
-
-		vk::RenderPassCreateInfo info;
-		info.setAttachments(attachments)
-			.setSubpasses(subpasses)
-			.setDependencies(dependencies);
-
-		RenderPass = Device.createRenderPass(info);
-		if (!RenderPass)
-		{
-			SPDLOG_ERROR("Failed to create render pass!");
-			return false;
-		}
-	}
-
-	return true;
-}
-
 bool Renderer::CreateDescriptorPool()
 {
 	std::array<vk::DescriptorPoolSize, 3> poolSize{
@@ -255,9 +63,10 @@ bool CreateFramebufferAttachment(
 	{
 		vk::ImageCreateInfo info;
 		info.setExtent({
-				Renderer::GetInstance().GetSwapchainExtent().width,
-				Renderer::GetInstance().GetSwapchainExtent().height,
-				1 })
+				Renderer::GetInstance().SwapchainExtent.width,
+				Renderer::GetInstance().SwapchainExtent.height,
+				1
+			})
 			.setFormat(format)
 			.setQueueFamilyIndices(Renderer::GetInstance().QueueIndices.GraphicsFamily.value())
 			.setImageType(vk::ImageType::e2D)
@@ -321,56 +130,6 @@ bool CreateFramebufferAttachment(
 	return true;
 }
 
-bool Renderer::CreateFramebuffers()
-{
-	// create framebuffer images
-	/*{
-		CreateFramebufferAttachment(
-			vk::Format::eR32G32B32A32Sfloat,
-			vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment,
-			Data.PositionsAttachment.Image,
-			Data.PositionsAttachment.ImageView,
-			Data.PositionsAttachment.Memory
-		);
-		
-		CreateFramebufferAttachment(
-			vk::Format::eR32G32B32A32Sfloat,
-			vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment,
-			Data.NormalsAttachment.Image,
-			Data.NormalsAttachment.ImageView,
-			Data.NormalsAttachment.Memory
-		);
-	}*/
-
-	SwapchainFramebuffers.resize(SwapchainImages.size());
-
-	for (size_t i = 0; i < SwapchainFramebuffers.size(); i++)
-	{
-		std::vector<vk::ImageView> attachments = {
-			SwapchainImageViews[i],
-			DepthBuffer.GetView(),
-			/*PositionsAttachment.ImageView,
-			NormalsAttachment.ImageView,*/
-		};
-
-		vk::FramebufferCreateInfo info;
-		info.setAttachments(attachments)
-			.setRenderPass(RenderPass)
-			.setWidth(SwapchainExtent.width)
-			.setHeight(SwapchainExtent.height)
-			.setLayers(1);
-
-		SwapchainFramebuffers[i] = Device.createFramebuffer(info);
-		if (!SwapchainFramebuffers[i])
-		{
-			SPDLOG_ERROR("Swapchain framebuffer creation failed!");
-			return false;
-		}
-	}
-
-	return true;
-}
-
 bool Renderer::CreateCommandPool()
 {
 	CommandPool = Device.createCommandPool({
@@ -419,6 +178,14 @@ bool Renderer::CreateSemaphores()
 	return true;
 }
 
+bool Renderer::CreateFences()
+{
+	vk::FenceCreateInfo info;
+	RenderFinishedFence = Device.createFence(info);
+
+	return RenderFinishedFence;
+}
+
 // ich habe den besten freund aus hu .
 
 bool Renderer::InitVulkan()
@@ -426,6 +193,11 @@ bool Renderer::InitVulkan()
 	DeviceExtensions = {
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 		VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+		VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
+		VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
+
+		VK_KHR_MAINTENANCE2_EXTENSION_NAME,
+		VK_KHR_MULTIVIEW_EXTENSION_NAME,
 	};
 
 	if (!CreateInstance()) return false;
@@ -446,27 +218,24 @@ bool Renderer::InitVulkan()
 	if (!Command::Init()) return false;
 	if (!CreateSwapChain()) return false;
 	if (!CreateSwapChainImageViews()) return false;
-	if (!CreateDepthBuffer()) return false;
-	if (!CreateRenderPass()) return false;
 	if (!CreateDescriptorPool()) return false;
-	if (!CreateFramebuffers()) return false;
 	if (!CreateCommandPool()) return false;
 	if (!CreateCommandBuffer()) return false;
 	if (!CreateSemaphores()) return false;
+	if (!CreateFences()) return false;
 
 	return true;
 }
 
 void Renderer::ExitVulkan()
 {
+	Device.destroyFence(RenderFinishedFence);
 	Device.destroySemaphore(RenderFinishedSemaphore);
 	Device.destroySemaphore(ImageAvailableSemaphore);
 	Device.destroyCommandPool(CommandPool);
 	Device.destroyDescriptorPool(DescriptorPool);
 	for (auto& framebuffer : SwapchainFramebuffers)
 		Device.destroyFramebuffer(framebuffer);
-	DepthBuffer.Destroy();
-	Device.destroyRenderPass(RenderPass);
 	for (auto& view : SwapchainImageViews)
 		Device.destroyImageView(view);
 	Command::Exit();

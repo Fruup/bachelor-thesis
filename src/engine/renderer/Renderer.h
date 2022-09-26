@@ -42,13 +42,17 @@ public:
 	void Begin();
 	void End();
 
+	void RenderImGui();
+
+	void Submit(bool wait = false, bool signal = false);
+	void WaitForRenderingFinished();
+
 	static uint32_t FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
+	float GetAspect() { return float(SwapchainExtent.width) / float(SwapchainExtent.height); }
 
 private:
 	bool InitVulkan();
 	void ExitVulkan();
-
-	void RenderImGui();
 
 	bool CreateInstance();
 	bool PickPhysicalDevice();
@@ -61,6 +65,7 @@ private:
 	bool CreateCommandBuffer();
 
 	bool CreateSemaphores();
+	bool CreateFences();
 
 	bool IsDeviceSuitable(vk::PhysicalDevice device);
 	QueueFamilyIndices FindQueueFamilies(vk::PhysicalDevice device);
@@ -95,6 +100,9 @@ public:
 
 	vk::Semaphore ImageAvailableSemaphore;
 	vk::Semaphore RenderFinishedSemaphore;
+	vk::Fence RenderFinishedFence;
 
 	ImGuiRenderPass ImGuiRenderPass;
 };
+
+static Renderer& Vulkan = Renderer::GetInstance();

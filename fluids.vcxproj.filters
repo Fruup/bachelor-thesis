@@ -54,26 +54,20 @@
     <ClInclude Include="src\app\AdvancedRenderer\AdvancedRenderer.h">
       <Filter>src\app\AdvancedRenderer</Filter>
     </ClInclude>
+    <ClInclude Include="src\app\AdvancedRenderer\BilateralBuffer.h">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\app\AdvancedRenderer\CompositionRenderPass.h">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\app\AdvancedRenderer\DepthRenderPass.h">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClInclude>
     <ClInclude Include="src\app\Dataset.h">
       <Filter>src\app</Filter>
     </ClInclude>
     <ClInclude Include="src\app\Kernel.h">
       <Filter>src\app</Filter>
-    </ClInclude>
-    <ClInclude Include="src\app\renderer\AdvancedFluidRenderer.h">
-      <Filter>src\app\renderer</Filter>
-    </ClInclude>
-    <ClInclude Include="src\app\renderer\DepthFluidRenderer.h">
-      <Filter>src\app\renderer</Filter>
-    </ClInclude>
-    <ClInclude Include="src\app\renderer\FluidRenderer.h">
-      <Filter>src\app\renderer</Filter>
-    </ClInclude>
-    <ClInclude Include="src\app\renderer\PointFluidRenderer.h">
-      <Filter>src\app\renderer</Filter>
-    </ClInclude>
-    <ClInclude Include="src\app\renderer\_AdvancedFluidRenderer.h">
-      <Filter>src\app\renderer</Filter>
     </ClInclude>
     <ClInclude Include="src\engine\Application.h">
       <Filter>src\engine</Filter>
@@ -113,6 +107,9 @@
     </ClInclude>
     <ClInclude Include="src\engine\input\Input.h">
       <Filter>src\engine\input</Filter>
+    </ClInclude>
+    <ClInclude Include="src\engine\renderer\ImGuiRenderPass.h">
+      <Filter>src\engine\renderer</Filter>
     </ClInclude>
     <ClInclude Include="src\engine\renderer\Renderer.h">
       <Filter>src\engine\renderer</Filter>
@@ -167,20 +164,20 @@
     <ClCompile Include="src\app\AdvancedRenderer\AdvancedRenderer.cpp">
       <Filter>src\app\AdvancedRenderer</Filter>
     </ClCompile>
+    <ClCompile Include="src\app\AdvancedRenderer\BilateralBuffer.cpp">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\app\AdvancedRenderer\CompositionRenderPass.cpp">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\app\AdvancedRenderer\DepthRenderPass.cpp">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClCompile>
     <ClCompile Include="src\app\Dataset.cpp">
       <Filter>src\app</Filter>
     </ClCompile>
     <ClCompile Include="src\app\Kernel.cpp">
       <Filter>src\app</Filter>
-    </ClCompile>
-    <ClCompile Include="src\app\renderer\AdvancedFluidRenderer.cpp">
-      <Filter>src\app\renderer</Filter>
-    </ClCompile>
-    <ClCompile Include="src\app\renderer\DepthFluidRenderer.cpp">
-      <Filter>src\app\renderer</Filter>
-    </ClCompile>
-    <ClCompile Include="src\app\renderer\PointFluidRenderer.cpp">
-      <Filter>src\app\renderer</Filter>
     </ClCompile>
     <ClCompile Include="src\engine\Application.cpp">
       <Filter>src\engine</Filter>
@@ -208,6 +205,9 @@
     </ClCompile>
     <ClCompile Include="src\engine\input\Input.cpp">
       <Filter>src\engine\input</Filter>
+    </ClCompile>
+    <ClCompile Include="src\engine\renderer\ImGuiRenderPass.cpp">
+      <Filter>src\engine\renderer</Filter>
     </ClCompile>
     <ClCompile Include="src\engine\renderer\Renderer.cpp">
       <Filter>src\engine\renderer</Filter>

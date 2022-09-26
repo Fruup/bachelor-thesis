@@ -12,8 +12,10 @@
 #include <string>
 #include <vector>
 
-#include <spdlog/spdlog.h>
+#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #include <vulkan/vulkan.hpp>
+
+#include <spdlog/spdlog.h>
 #include <glfw/glfw3.h>
 #include <yaml-cpp/yaml.h>
 

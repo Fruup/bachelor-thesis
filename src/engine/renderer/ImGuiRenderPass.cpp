@@ -5,7 +5,7 @@
 
 // ----------------------------------------------------------------------
 
-auto& Vulkan = Renderer::GetInstance();
+//auto& Vulkan = Renderer::GetInstance();
 
 // ----------------------------------------------------------------------
 
@@ -25,10 +25,19 @@ void ImGuiRenderPass::Exit()
 
 void ImGuiRenderPass::Begin()
 {
+	const std::array<float, 4> ClearColor = {
+		1.0f, 0.0f, 1.0f, 1.0f,
+	};
+
+	std::array<vk::ClearValue, 1> ClearValue = {
+		vk::ClearColorValue(ClearColor),
+	};
+
 	vk::RenderPassBeginInfo info;
 	info.setFramebuffer(Framebuffers[Vulkan.CurrentImageIndex])
 		.setRenderArea(vk::Rect2D({ 0, 0 }, Vulkan.SwapchainExtent))
-		.setRenderPass(RenderPass);
+		.setRenderPass(RenderPass)
+		.setClearValues(ClearValue);
 
 	Vulkan.CommandBuffer.beginRenderPass(info, vk::SubpassContents::eInline);
 }
@@ -67,21 +76,37 @@ void ImGuiRenderPass::CreateRenderPass()
 		.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics);
 
 	// dependency
-	vk::SubpassDependency dependency;
-	dependency
+	vk::SubpassDependency dependency1;
+	dependency1
 		.setSrcSubpass(VK_SUBPASS_EXTERNAL)
 		.setDstSubpass(0)
-		.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
-		.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+		.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+		.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+		.setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+		.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+
+	vk::SubpassDependency dependency2;
+	dependency2
+		.setSrcSubpass(0)
+		.setDstSubpass(VK_SUBPASS_EXTERNAL)
+		.setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+		.setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
+		.setSrcAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
+		.setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
+
+	std::array<vk::SubpassDependency, 2> dependencies = {
+		dependency1,
+		dependency2,
+	};
 
 	// render pass
 	vk::RenderPassCreateInfo renderPassCreateInfo;
 	renderPassCreateInfo
 		.setAttachments(colorAttachment)
-		.setDependencies(dependency)
+		.setDependencies(dependencies)
 		.setSubpasses(subpass);
 
-	Vulkan.Device.createRenderPass(renderPassCreateInfo);
+	RenderPass = Vulkan.Device.createRenderPass(renderPassCreateInfo);
 }
 
 void ImGuiRenderPass::CreateFramebuffers()

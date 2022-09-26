@@ -7,6 +7,8 @@
 #include "engine/events/Mouse.h"
 #include "engine/events/Keyboard.h"
 
+//auto& Vulkan = Renderer::GetInstance();
+
 InputData Input::Data;
 
 void PostEvent(Event& e)
@@ -103,10 +105,10 @@ void MouseMoveCallback(GLFWwindow* window, double xpos, double ypos)
 
 void Input::Init()
 {
-	auto window = Renderer::GetInstance().GetWindow();
+	auto window = Vulkan.Window;
 
 	// get initial cursor position
-	glfwGetCursorPos(Renderer::GetInstance().GetWindow(), &Data.CursorPosition.x, &Data.CursorPosition.y);
+	glfwGetCursorPos(window, &Data.CursorPosition.x, &Data.CursorPosition.y);
 
 	// set glfw callbacks
 	glfwSetInputMode(window, GLFW_STICKY_MOUSE_BUTTONS, GLFW_TRUE);
