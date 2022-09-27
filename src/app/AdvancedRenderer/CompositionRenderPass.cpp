@@ -65,26 +65,10 @@ void CompositionRenderPass::Begin()
 		.setImageView(Vulkan.SwapchainImageViews[Vulkan.CurrentImageIndex])
 		.setClearValue(ClearValue)
 		.setLoadOp(vk::AttachmentLoadOp::eClear)
-		.setStoreOp(vk::AttachmentStoreOp::eDontCare);
+		.setStoreOp(vk::AttachmentStoreOp::eStore);
 
-	vk::RenderingAttachmentInfo positionsAttachment;
-	positionsAttachment
-		.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
-		.setImageView(Renderer.PositionsBuffer.GPU.ImageView)
-		.setLoadOp(vk::AttachmentLoadOp::eLoad)
-		.setStoreOp(vk::AttachmentStoreOp::eDontCare);
-
-	vk::RenderingAttachmentInfo normalsAttachment;
-	normalsAttachment
-		.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
-		.setImageView(Renderer.NormalsBuffer.GPU.ImageView)
-		.setLoadOp(vk::AttachmentLoadOp::eLoad)
-		.setStoreOp(vk::AttachmentStoreOp::eDontCare);
-
-	std::array<vk::RenderingAttachmentInfo, 3> attachments = {
+	std::array<vk::RenderingAttachmentInfo, 1> attachments = {
 		screenAttachment,
-		positionsAttachment,
-		normalsAttachment,
 	};
 
 	vk::RenderingInfo renderingInfo;
@@ -193,27 +177,36 @@ void CompositionRenderPass::CreatePipeline()
 		.setRasterizationSamples(vk::SampleCountFlagBits::e1);
 
 	// blending
-	vk::PipelineColorBlendAttachmentState blendAttachment;
-	blendAttachment.setBlendEnable(false);
+	std::array<vk::PipelineColorBlendAttachmentState, 3> blendAttachments = {
+		vk::PipelineColorBlendAttachmentState(false),
+		vk::PipelineColorBlendAttachmentState(false),
+		vk::PipelineColorBlendAttachmentState(false),
+	};
 
 	vk::PipelineColorBlendStateCreateInfo blendState;
 	blendState
 		.setLogicOpEnable(false)
-		.setAttachments(blendAttachment);
+		/*.setAttachments(blendAttachments)*/;
 
 	// depth state
 	vk::PipelineDepthStencilStateCreateInfo depthStencilState;
 	depthStencilState
-		.setDepthTestEnable(true)
-		.setDepthWriteEnable(true)
-		.setDepthCompareOp(vk::CompareOp::eLessOrEqual)
+		.setDepthTestEnable(false)
+		.setDepthWriteEnable(false)
 		.setDepthBoundsTestEnable(false)
 		.setStencilTestEnable(false);
 
 	// rendering info
+	std::array<vk::Format, 3> colorAttachmentFormats = {
+		vk::Format::eB8G8R8A8Srgb,
+		vk::Format::eR32G32B32A32Sfloat,
+		vk::Format::eR32G32B32A32Sfloat,
+	};
+
 	vk::PipelineRenderingCreateInfo renderingPipelineCreateInfo;
 	renderingPipelineCreateInfo
-		.setDepthAttachmentFormat(Renderer.DepthBuffer.Format);
+		//.setColorAttachmentFormats(colorAttachmentFormats)
+		.setViewMask(0);
 
 	// pipeline
 	vk::GraphicsPipelineCreateInfo pipelineCreateInfo;
@@ -244,8 +237,16 @@ void CompositionRenderPass::CreateDescriptorSetLayout()
 		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
 		.setStageFlags(vk::ShaderStageFlagBits::eFragment);
 
-	std::array<vk::DescriptorSetLayoutBinding, 1> bindings = {
+	vk::DescriptorSetLayoutBinding positionsAttachment;
+	positionsAttachment
+		.setBinding(1)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+		.setStageFlags(vk::ShaderStageFlagBits::eFragment);
+
+	std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {
 		uniformBuffer,
+		positionsAttachment,
 	};
 
 	vk::DescriptorSetLayoutCreateInfo info({}, bindings);
@@ -289,6 +290,7 @@ void CompositionRenderPass::UpdateUniforms()
 
 void CompositionRenderPass::UpdateDescriptorSets()
 {
+	// uniforms
 	vk::DescriptorBufferInfo bufferInfo;
 	bufferInfo
 		.setBuffer(UniformBuffer)
@@ -304,8 +306,26 @@ void CompositionRenderPass::UpdateDescriptorSets()
 		.setDstBinding(0)
 		.setDstSet(DescriptorSet);
 
-	std::array<vk::WriteDescriptorSet, 1> writes = {
-		writeUniform
+	// positions
+	vk::DescriptorImageInfo positionsImageInfo;
+	positionsImageInfo
+		.setImageView(Renderer.PositionsBuffer.GPU.ImageView)
+		.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+		.setSampler(Renderer.PositionsBuffer.GPU.Sampler);
+
+	vk::WriteDescriptorSet writePositions;
+	writePositions
+		.setImageInfo(positionsImageInfo)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+		.setDstArrayElement(0)
+		.setDstBinding(1)
+		.setDstSet(DescriptorSet);
+
+	// write
+	std::array<vk::WriteDescriptorSet, 2> writes = {
+		writeUniform,
+		writePositions,
 	};
 
 	Vulkan.Device.updateDescriptorSets(writes, {});

@@ -42,6 +42,8 @@ private:
 	void RayMarch();
 	void DrawCompositionPass();
 
+	float ComputeDensity(const glm::vec3& x);
+
 public:
 	DepthRenderPass DepthRenderPass;
 	CompositionRenderPass CompositionRenderPass;

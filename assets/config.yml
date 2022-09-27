@@ -1,14 +1,14 @@
 display:
   title: "Application"
-  width: 1600
-  height: 900
-  # width: 800
-  # height: 450
+  # width: 1600
+  # height: 900
+  width: 800
+  height: 450
   # pixelSize: 2
   showDemoWindow: false
 
 # dataset: "bunny"
-# dataset: "emitter"
+dataset: "emitter"
 # dataset: "deformables"
 # dataset: "motor"
-dataset: "small"
+# dataset: "small"

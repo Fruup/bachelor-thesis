@@ -14,13 +14,46 @@ layout (std140, binding = 0) uniform UNIFORMS
 	vec3 LightDirection;
 } Uniforms;
 
+layout (binding = 1) uniform sampler2D Positions;
+// layout (binding = 2) uniform sampler2D Normals;
+// layout (binding = 3) uniform sampler2D Depth;
+
 layout (location = 0) in vec2 UV;
+layout (location = 1) in vec2 tl;
+layout (location = 2) in vec2 tm;
+layout (location = 3) in vec2 tr;
+layout (location = 4) in vec2 ml;
+layout (location = 5) in vec2 mr;
+layout (location = 6) in vec2 bl;
+layout (location = 7) in vec2 bm;
+layout (location = 8) in vec2 br;
 
 layout (location = 0) out vec4 Color;
 
-layout (location = 1) out vec4 Positions;
-layout (location = 2) out vec4 Normals;
+const mat3 K = (1/8) * mat3(
+	vec3(-1, 0, +1),
+	vec3(-2, 0, +2),
+	vec3(-1, 0, +1)
+);
 
+float position(vec2 uv) { return length(texture(Positions, uv).xyz); }
+
+void main()
+{
+	// const float f =
+	// 	K[0][0] * position(tl) + K[1][0] * position(tm) + K[2][0] * position(tr) +
+	// 	K[0][1] * position(ml) + K[1][1] * position(UV) + K[2][1] * position(mr) +
+	// 	K[0][2] * position(bl) + K[1][2] * position(bm) + K[2][2] * position(br);
+
+	const float f = position(UV);
+
+	Color = vec4(abs(texture(Positions, UV).xyz), 1);
+	// Color = vec4(Positions.xyz, 1);
+	// Color = vec4(UV, 0, 1);
+	// Color = vec4(1, 0, 0, 1);
+}
+
+#if 0
 void main()
 {
 	// TODO: check if depth buffer is 1 here
@@ -58,3 +91,4 @@ void main()
 	// Color = vec4(subpassLoad(Position).xyz, 1);
 	// Color = vec4(vec3(subpassLoad(Depth).r), 1);
 }
+#endif

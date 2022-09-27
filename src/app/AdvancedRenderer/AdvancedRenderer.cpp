@@ -5,8 +5,19 @@
 #include <engine/renderer/Renderer.h>
 #include <engine/renderer/objects/Command.h>
 #include <engine/events/Event.h>
+#include <engine/utils/PerformanceTimer.h>
+
+#include "app/Kernel.h"
 
 #include <fstream>
+
+// ------------------------------------------------------------------------
+
+static int s_MaxSteps = 16;
+static float s_StepSize = 0.01f;
+static float s_IsoDensity = 1.0f;
+
+static bool s_Process = true;
 
 // ------------------------------------------------------------------------
 
@@ -102,6 +113,8 @@ void AdvancedRenderer::Init(::Dataset* dataset)
 		1000.0f
 	);
 
+	CameraController.SetPosition({ 0, 3, -5 });
+	CameraController.SetOrientation(glm::quatLookAtLH(-glm::normalize(CameraController.Position), { 0, 1, 0 }));
 	CameraController.ComputeMatrices();
 }
 
@@ -164,10 +177,6 @@ void AdvancedRenderer::Render()
 	//   Done in Renderer:
 	// begin command buffer
 
-	vk::CommandBufferBeginInfo beginInfo;
-
-	//DepthBuffer.PrepareGPULayoutForRendering(Vulkan.CommandBuffer);
-
 	CollectRenderData();
 
 	DepthBuffer.TransitionLayout(vk::ImageLayout::eDepthAttachmentOptimal,
@@ -202,17 +211,14 @@ void AdvancedRenderer::Render()
 	NormalsBuffer.CopyToGPU();
 
 	Vulkan.CommandBuffer.reset();
+	vk::CommandBufferBeginInfo beginInfo;
 	Vulkan.CommandBuffer.begin(beginInfo);
 
-	PositionsBuffer.TransitionLayout(vk::ImageLayout::eColorAttachmentOptimal,
+	PositionsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
 									 vk::AccessFlagBits::eColorAttachmentRead,
 									 vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
-	NormalsBuffer.TransitionLayout(vk::ImageLayout::eColorAttachmentOptimal,
-								   vk::AccessFlagBits::eColorAttachmentRead,
-								   vk::PipelineStageFlagBits::eColorAttachmentOutput);
-
-	NormalsBuffer.TransitionLayout(vk::ImageLayout::eColorAttachmentOptimal,
+	NormalsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
 								   vk::AccessFlagBits::eColorAttachmentRead,
 								   vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
@@ -228,21 +234,28 @@ void AdvancedRenderer::Render()
 	DrawCompositionPass();
 	CompositionRenderPass.End();
 
-	/*TransitionImageLayout(Vulkan.SwapchainImages[Vulkan.CurrentImageIndex],
-						  vk::ImageLayout::eColorAttachmentOptimal,
-						  vk::ImageLayout::ePresentSrcKHR,
-						  vk::AccessFlagBits::eColorAttachmentWrite,
-						  {},
-						  vk::PipelineStageFlagBits::eColorAttachmentOutput,
-						  vk::PipelineStageFlagBits::eBottomOfPipe);*/
-
 	//   Done in Renderer:
+	// Transition swapchain image layout
 	// Render ImGui pass
 	// end command buffer
 }
 
 void AdvancedRenderer::RenderUI()
 {
+	ImGui::Begin("Renderer");
+
+	ImGui::SliderInt("Frame", &CurrentFrame, 0, Dataset->Snapshots.size() - 1);
+
+	ImGui::SliderInt("# steps", &s_MaxSteps, 0, 64);
+	ImGui::DragFloat("Step size", &s_StepSize, 0.1f, 0.000001f, 10.0f, "%f", ImGuiSliderFlags_Logarithmic);
+	ImGui::DragFloat("Iso", &s_IsoDensity, 0.1f, 0.001f, 100.0f, "%f", ImGuiSliderFlags_Logarithmic);
+
+	s_Process = ImGui::Button("Process");
+
+	float density = ComputeDensity({ 0, 0, 0 });
+	ImGui::InputFloat("D", &density, 0.0f, 0.0f, "%f");
+
+	ImGui::End();
 }
 
 // ------------------------------------------------------------------------
@@ -301,11 +314,71 @@ void AdvancedRenderer::DrawDepthPass()
 
 void AdvancedRenderer::RayMarch()
 {
-	// ...
+	PROFILE_FUNCTION();
 
-	/*void* mapped = DepthBuffer.MapCPUMemory();
-	DumpDataToFile("DEPTH", mapped, DepthBuffer.Size);
-	DepthBuffer.UnmapCPUMemory();*/
+	const int   MAX_STEPS   = s_MaxSteps;
+	const float STEP_SIZE   = s_StepSize;
+	const float ISO_DENSITY = s_IsoDensity;
+
+	const int width = Vulkan.SwapchainExtent.width;
+	const int height = Vulkan.SwapchainExtent.height;
+	const float widthF = float(width);
+	const float heightF = float(height);
+
+	const float* depth = reinterpret_cast<float*>(DepthBuffer.MapCPUMemory());
+	glm::vec4* positions = reinterpret_cast<glm::vec4*>(PositionsBuffer.MapCPUMemory());
+	glm::vec4* normals = reinterpret_cast<glm::vec4*>(NormalsBuffer.MapCPUMemory());
+
+	if (s_Process)
+	{
+		#pragma omp parallel for
+		for (int y = 0; y < height; y++)
+		{
+			#pragma omp parallel for
+			for (int x = 0; x < width; x++)
+			{
+				uint32_t index = y * width + x;
+				const float z = depth[index];
+
+				positions[index] = glm::vec4(0, 0, 0, 1);
+
+				if (z == 1.0f) continue;
+
+				glm::vec3 clip(2.0f * float(x) / widthF - 1.0f,
+							   2.0f * float(y) / heightF - 1.0f,
+							   z);
+
+				glm::vec4 worldH = Camera.GetInvProjectionView() * glm::vec4(clip, 1);
+				glm::vec3 world = glm::vec3(worldH) / worldH.w;
+
+				//positions[index] = glm::vec4(world, 1);
+				positions[index] = glm::vec4(z, 0, 0, 1);
+				continue;
+
+				glm::vec3 position = glm::vec3(worldH) / worldH.w;
+				glm::vec3 step = STEP_SIZE * glm::normalize(position - CameraController.Position);
+
+				for (int i = 0; i < MAX_STEPS; i++)
+				{
+					position += step;
+					float density = ComputeDensity(position);
+					if (density >= ISO_DENSITY)
+					{
+						positions[index] = glm::vec4(density / ISO_DENSITY);
+						positions[index] = glm::vec4(1);
+						//normals[index] = glm::vec4(0);
+						i = MAX_STEPS;
+					}
+				}
+			}
+		}
+
+		s_Process = false;
+	}
+
+	NormalsBuffer.UnmapCPUMemory();
+	PositionsBuffer.UnmapCPUMemory();
+	DepthBuffer.UnmapCPUMemory();
 }
 
 void AdvancedRenderer::DrawCompositionPass()
@@ -317,6 +390,21 @@ void AdvancedRenderer::DrawCompositionPass()
 		offset);
 
 	Vulkan.CommandBuffer.draw(3, 1, 0, 0);
+}
+
+float AdvancedRenderer::ComputeDensity(const glm::vec3& x)
+{
+	CubicSplineKernel K(Dataset->ParticleRadius);
+	const auto& neighbors = Dataset->GetNeighbors(x, CurrentFrame);
+
+	float density = 0.0f;
+	for (const auto& index : neighbors)
+	{
+		const auto& p = Dataset->Snapshots[CurrentFrame][index];
+		density += K.W(x - glm::vec3(p[0], p[1], p[2]));
+	}
+
+	return density;
 }
 
 // ------------------------------------------------------------------------

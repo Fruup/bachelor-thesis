@@ -15,6 +15,14 @@ layout (std140, binding = 0) uniform UNIFORMS
 } Uniforms;
 
 layout (location = 0) in vec2 UV;
+layout (location = 1) in vec2 tl;
+layout (location = 2) in vec2 tm;
+layout (location = 3) in vec2 tr;
+layout (location = 4) in vec2 ml;
+layout (location = 5) in vec2 mr;
+layout (location = 6) in vec2 bl;
+layout (location = 7) in vec2 bm;
+layout (location = 8) in vec2 br;
 
 layout (input_attachment_index = 0, set = 0, binding = 1) uniform subpassInput Depth;
 

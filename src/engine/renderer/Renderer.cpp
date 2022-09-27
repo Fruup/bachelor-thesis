@@ -75,6 +75,10 @@ bool InitImGui()
 
 	ImGui_ImplVulkan_DestroyFontUploadObjects();
 
+	// styling
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
 	return true;
 }
 
@@ -207,8 +211,7 @@ bool Renderer::Init(int width, int height, int pixelSize, const char* title)
 
 void Renderer::Exit()
 {
-	if (Device)
-		Device.waitIdle();
+	Device.waitIdle();
 
 	ImGuiRenderPass.Exit();
 

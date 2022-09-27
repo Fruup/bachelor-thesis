@@ -80,6 +80,30 @@ public:
 	};
 };
 
+void ApplicationImGui()
+{
+	ImGuiDockNodeFlags dockspaceFlags = ImGuiDockNodeFlags_PassthruCentralNode;
+	ImGuiWindowFlags windowFlags =
+		ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoBackground |
+		ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+		ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+	const ImGuiViewport* viewport = ImGui::GetMainViewport();
+	ImGui::SetNextWindowPos(viewport->WorkPos);
+	ImGui::SetNextWindowSize(viewport->WorkSize);
+	ImGui::SetNextWindowViewport(viewport->ID);
+
+	// dockspace
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
+
+	ImGui::Begin("Dockspace", nullptr, windowFlags);
+
+	ImGui::PopStyleVar(1);
+
+	ImGui::DockSpace(ImGui::GetID("MyDockSpace"), {}, dockspaceFlags);
+	ImGui::End();
+}
+
 int main()
 {
 	App app;
@@ -102,6 +126,7 @@ int main()
 		// render
 		Vulkan.Begin();
 
+		ApplicationImGui();
 		g_Renderer->RenderUI();
 		GlobalStatistics.ImGuiRender();
 
@@ -114,7 +139,8 @@ int main()
 			app.Data.Running = false;
 	}
 
-	app.Exit();
-
+	g_Renderer->Exit();
 	g_Renderer.reset();
+
+	app.Exit();
 }

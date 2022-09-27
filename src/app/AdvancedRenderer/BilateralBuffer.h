@@ -44,6 +44,7 @@ public:
 		vk::Image Image;
 		vk::ImageView ImageView;
 		vk::DeviceMemory Memory;
+		vk::Sampler Sampler;
 
 		vk::ImageLayout Layout;
 	} GPU;

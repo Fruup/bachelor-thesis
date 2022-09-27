@@ -20,7 +20,7 @@ void BilateralBuffer::Init(_Type type)
 	{
 		case Color:
 		{
-			Usage = vk::ImageUsageFlagBits::eColorAttachment;
+			Usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled;
 			Format = vk::Format::eR32G32B32A32Sfloat;
 			AspectFlags = vk::ImageAspectFlagBits::eColor;
 			//GPU.Layout = vk::ImageLayout::eColorAttachmentOptimal;
@@ -60,6 +60,7 @@ void BilateralBuffer::Exit()
 	Vulkan.Device.destroyImage(GPU.Image);
 	Vulkan.Device.destroyImageView(GPU.ImageView);
 	Vulkan.Device.freeMemory(GPU.Memory);
+	Vulkan.Device.destroySampler(GPU.Sampler);
 }
 
 void BilateralBuffer::CopyToGPU()
@@ -225,6 +226,26 @@ void BilateralBuffer::CreateGPUSide()
 		));
 
 	GPU.ImageView = Vulkan.Device.createImageView(viewCreateInfo);
+
+	// sampler
+
+	vk::SamplerCreateInfo samplerCreateInfo;
+	samplerCreateInfo
+		.setAddressModeU(vk::SamplerAddressMode::eClampToEdge)
+		.setAddressModeV(vk::SamplerAddressMode::eClampToEdge)
+		.setAddressModeW(vk::SamplerAddressMode::eClampToEdge)
+		.setAnisotropyEnable(false)
+		.setMaxAnisotropy(0)
+		.setCompareEnable(false)
+		.setMagFilter(vk::Filter::eLinear)
+		.setMinFilter(vk::Filter::eLinear)
+		.setMaxLod(1.0f)
+		.setMinLod(1.0f)
+		.setMipLodBias(0.0f)
+		.setMipmapMode(vk::SamplerMipmapMode::eLinear)
+		.setUnnormalizedCoordinates(false);
+
+	GPU.Sampler = Vulkan.Device.createSampler(samplerCreateInfo);
 }
 
 void BilateralBuffer::TransitionLayout(vk::ImageLayout newLayout,

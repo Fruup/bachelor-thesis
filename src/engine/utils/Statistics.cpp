@@ -81,7 +81,7 @@ void Statistics::CountUp(size_t hash, size_t amount)
 
 void Statistics::ImGuiRender()
 {
-	std::string strId = "Statistics - " + m_StatsName;
+	/*std::string strId = "Statistics - " + m_StatsName;
 
 	ImGui::Begin(strId.c_str(), &m_Open);
 
@@ -124,7 +124,7 @@ void Statistics::ImGuiRender()
 		ImGui::EndTable();
 	}
 
-	ImGui::End();
+	ImGui::End();*/
 
 	ImGui::Begin("Timers");
 	
@@ -132,7 +132,7 @@ void Statistics::ImGuiRender()
 		for (const auto& [name, duration] : PerformanceTimer::Storage.Timers)
 		{
 			ImGui::Text("%s:", name);
-			ImGui::Text("  %s", PerformanceTimer::Stringify(duration).c_str());
+			ImGui::Text("  %s", PerformanceTimer::Stringify(duration.GetAverage()).c_str());
 		}
 	}
 
