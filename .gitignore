@@ -4,3 +4,8 @@ build
 obj
 
 datasets
+
+# shader files
+.temp
+*.hash
+*.spv
