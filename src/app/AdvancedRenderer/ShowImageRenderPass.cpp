@@ -34,7 +34,6 @@ void ShowImageRenderPass::Init()
 	CreatePipeline();
 
 	CreateUniformBuffer();
-	UpdateUniformsFullscreen();
 
 	UpdateDescriptorSets();
 }
@@ -75,6 +74,10 @@ void ShowImageRenderPass::Begin()
 		.setViewMask(0);
 
 	Vulkan.CommandBuffer.beginRendering(renderingInfo);
+
+	// update descriptors
+	UpdateUniformsFullscreen();
+	UpdateDescriptorSets();
 
 	// bind pipeline and descriptor set
 	Vulkan.CommandBuffer.bindPipeline(
@@ -173,8 +176,19 @@ void ShowImageRenderPass::CreatePipeline()
 		.setRasterizationSamples(vk::SampleCountFlagBits::e1);
 
 	// blending
+	vk::PipelineColorBlendAttachmentState blendAttachment;
+	blendAttachment
+		.setColorWriteMask(
+			vk::ColorComponentFlagBits::eR |
+			vk::ColorComponentFlagBits::eG |
+			vk::ColorComponentFlagBits::eB |
+			vk::ColorComponentFlagBits::eA)
+		.setBlendEnable(false);
+
 	vk::PipelineColorBlendStateCreateInfo blendState;
-	blendState.setLogicOpEnable(false);
+	blendState
+		.setLogicOpEnable(false)
+		.setAttachments(blendAttachment);
 
 	// depth state
 	vk::PipelineDepthStencilStateCreateInfo depthStencilState;
@@ -186,7 +200,8 @@ void ShowImageRenderPass::CreatePipeline()
 
 	// rendering info
 	vk::PipelineRenderingCreateInfo renderingPipelineCreateInfo;
-	renderingPipelineCreateInfo.setViewMask(0);
+	renderingPipelineCreateInfo.setViewMask(0)
+		.setColorAttachmentFormats(Vulkan.SwapchainFormat);
 
 	// pipeline
 	vk::GraphicsPipelineCreateInfo pipelineCreateInfo;
@@ -289,8 +304,8 @@ void ShowImageRenderPass::UpdateDescriptorSets()
 		.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
 		.setSampler(Renderer.SmoothedDepthBuffer.GPU.Sampler);
 
-	vk::WriteDescriptorSet writeDepth;
-	writeDepth
+	vk::WriteDescriptorSet writeDepthImage;
+	writeDepthImage
 		.setImageInfo(depthImageInfo)
 		.setDescriptorCount(1)
 		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
@@ -301,7 +316,7 @@ void ShowImageRenderPass::UpdateDescriptorSets()
 	// write
 	std::array<vk::WriteDescriptorSet, 2> writes = {
 		writeUniformFullscreen,
-		writeDepth,
+		writeDepthImage,
 	};
 
 	Vulkan.Device.updateDescriptorSets(writes, {});

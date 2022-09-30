@@ -107,7 +107,9 @@ void AdvancedRenderer::Init(::Dataset* dataset)
 	Dataset = dataset;
 
 	DepthBuffer.Init(BilateralBuffer::Depth);
-	SmoothedDepthBuffer.Init(BilateralBuffer::Depth);
+	SmoothedDepthBuffer.Init(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled,
+							 vk::Format::eR32Sfloat,
+							 vk::ImageAspectFlagBits::eColor);
 	PositionsBuffer.Init(BilateralBuffer::Color);
 	NormalsBuffer.Init(BilateralBuffer::Color);
 
@@ -126,8 +128,11 @@ void AdvancedRenderer::Init(::Dataset* dataset)
 		1000.0f
 	);
 
-	CameraController.SetPosition({ 0, 3, -5 });
-	CameraController.SetOrientation(glm::quatLookAtLH(-glm::normalize(CameraController.Position), { 0, 1, 0 }));
+	
+	//CameraController.SetPosition({ 0, 3, -5 });
+	CameraController.SetPosition({ 10.0f, 2.5f, -16.0f });
+	//CameraController.SetOrientation(glm::quatLookAtLH(-glm::normalize(CameraController.Position), { 0, 1, 0 }));
+	CameraController.SetOrientation(glm::quatLookAtLH(-glm::normalize(glm::vec3(0, 3, -5)), { 0, 1, 0 }));
 	CameraController.ComputeMatrices();
 
 	// start worker thread
@@ -226,11 +231,9 @@ void AdvancedRenderer::Render()
 									 vk::AccessFlagBits::eColorAttachmentRead,
 									 vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
-		SmoothedDepthBuffer.TransitionLayout(vk::ImageLayout::eDepthAttachmentOptimal,
-									 vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-									 // vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-									 vk::PipelineStageFlagBits::eEarlyFragmentTests |
-									 vk::PipelineStageFlagBits::eLateFragmentTests);
+		SmoothedDepthBuffer.TransitionLayout(vk::ImageLayout::eColorAttachmentOptimal,
+									 vk::AccessFlagBits::eColorAttachmentWrite,
+									 vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
 		GaussRenderPass.Begin();
 		DrawFullscreenQuad();
@@ -341,6 +344,8 @@ void AdvancedRenderer::RenderUI()
 
 	float density = ComputeDensity({ 0, 0, 0 });
 	ImGui::InputFloat("D", &density, 0.0f, 0.0f, "%f");
+
+	ImGui::InputFloat3("Camera", CameraController.Position.data.data, "%.3f", ImGuiInputTextFlags_ReadOnly);
 
 	ImGui::End();
 

@@ -68,8 +68,6 @@ void ComputeGaussKernel(int N, float* out)
 GaussRenderPass::GaussRenderPass(AdvancedRenderer& renderer) :
 	Renderer(renderer)
 {
-	/*std::vector<float> out;
-	ComputeGaussKernel(1, out);*/
 }
 
 // --------------------------------------------------------------
@@ -108,29 +106,29 @@ void GaussRenderPass::Exit()
 
 void GaussRenderPass::Begin()
 {
-	vk::ClearDepthStencilValue clearValue(0.5f);
+	// update descriptor set
+	UpdateUniforms();
+
+	UpdateDescriptorSet();
+
+	vk::ClearDepthStencilValue clearValue(0.0f);
 
 	vk::RenderingAttachmentInfo smoothedDepthAttachment;
 	smoothedDepthAttachment
 		.setClearValue(clearValue)
-		.setLoadOp(vk::AttachmentLoadOp::eDontCare)
+		.setLoadOp(vk::AttachmentLoadOp::eClear)
 		.setStoreOp(vk::AttachmentStoreOp::eStore)
 		.setImageView(Renderer.SmoothedDepthBuffer.GPU.ImageView)
-		.setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal);
+		.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal);
 
 	vk::RenderingInfo renderingInfo;
 	renderingInfo
-		.setPDepthAttachment(&smoothedDepthAttachment)
+		.setColorAttachments(smoothedDepthAttachment)
 		.setLayerCount(1)
 		.setRenderArea(vk::Rect2D({ 0, 0 }, Vulkan.SwapchainExtent ))
 		.setViewMask(0);
 
 	Vulkan.CommandBuffer.beginRendering(renderingInfo);
-
-	// update descriptor set
-	UpdateDescriptorSet();
-
-	UpdateUniforms();
 
 	// bind pipeline and descriptor set
 	Vulkan.CommandBuffer.bindPipeline(
@@ -156,7 +154,7 @@ void GaussRenderPass::RenderUI()
 {
 	ImGui::Begin("GaussRenderPass");
 
-	if (ImGui::SliderInt("Gauss N", &Uniforms.GaussN, 1, 63))
+	if (ImGui::SliderInt("Gauss N", &Uniforms.GaussN, 0, MaxKernelSize - 1))
 	{
 		ComputeGaussKernel(Uniforms.GaussN, Uniforms.Kernel);
 	}
@@ -164,7 +162,7 @@ void GaussRenderPass::RenderUI()
 	ImGui::End();
 }
 
-// --------------------------------------------------------------
+// --------------------------------------------------------------------------------------------
 // PRIVATE HELPER FUNCTIONS
 
 void GaussRenderPass::CreateUniformBuffer()
@@ -259,7 +257,9 @@ void GaussRenderPass::CreatePipeline()
 
 	// blending
 	vk::PipelineColorBlendAttachmentState blendAttachment;
-	blendAttachment.setBlendEnable(false);
+	blendAttachment
+		.setColorWriteMask(vk::ColorComponentFlagBits::eR)
+		.setBlendEnable(false);
 
 	vk::PipelineColorBlendStateCreateInfo blendState;
 	blendState
@@ -270,7 +270,7 @@ void GaussRenderPass::CreatePipeline()
 	vk::PipelineDepthStencilStateCreateInfo depthStencilState;
 	depthStencilState
 		.setDepthTestEnable(false)
-		.setDepthWriteEnable(true)
+		.setDepthWriteEnable(false)
 		.setDepthCompareOp(vk::CompareOp::eLessOrEqual)
 		.setDepthBoundsTestEnable(false)
 		.setStencilTestEnable(false);
@@ -279,7 +279,7 @@ void GaussRenderPass::CreatePipeline()
 	vk::PipelineRenderingCreateInfo renderingPipelineCreateInfo;
 	renderingPipelineCreateInfo
 		.setViewMask(0)
-		.setDepthAttachmentFormat(Renderer.SmoothedDepthBuffer.Format);
+		.setColorAttachmentFormats(Renderer.SmoothedDepthBuffer.Format);
 
 	// pipeline
 	vk::GraphicsPipelineCreateInfo pipelineCreateInfo;
@@ -361,16 +361,18 @@ void GaussRenderPass::UpdateUniforms()
 
 void GaussRenderPass::UpdateDescriptorSet()
 {
-	// uniforms 1 (all up to kernel array)
-	vk::DescriptorBufferInfo bufferInfo;
-	bufferInfo
+	// uniforms
+	vk::DescriptorBufferInfo uniformBufferInfo;
+	uniformBufferInfo
 		.setBuffer(UniformBuffer)
 		.setOffset(0)
-		.setRange(sizeof(int) + sizeof(float) * (Uniforms.GaussN + 1) * (Uniforms.GaussN + 1));
+		//.setRange(VK_WHOLE_SIZE);
+		.setRange(offsetof(decltype(Uniforms), Kernel) +
+				  sizeof(float) * (Uniforms.GaussN + 1) * (Uniforms.GaussN + 1));
 
-	vk::WriteDescriptorSet writeUniform;
-	writeUniform
-		.setBufferInfo(bufferInfo)
+	vk::WriteDescriptorSet writeUniformBuffer;
+	writeUniformBuffer
+		.setBufferInfo(uniformBufferInfo)
 		.setDescriptorCount(1)
 		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
 		.setDstArrayElement(0)
@@ -411,7 +413,7 @@ void GaussRenderPass::UpdateDescriptorSet()
 
 
 	std::array<vk::WriteDescriptorSet, 3> writes = {
-		writeUniform,
+		writeUniformBuffer,
 		writeDepthSampler,
 		writeUniformFullscreen,
 	};

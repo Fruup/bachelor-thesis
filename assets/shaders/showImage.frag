@@ -1,6 +1,6 @@
 #version 460
 
-layout (std140, binding = 2) uniform RESOLUTIUON_UNIFORMS
+layout (std140, binding = 2) uniform UNIFORMS
 {
 	float TexelWidth;
 	float TexelHeight;
@@ -15,5 +15,6 @@ layout (location = 0) out vec4 Color;
 void main()
 {
 	Color = vec4(vec3(texture(Image, UV).r), 1);
+	// Color = vec4(texture(Image, UV).r, 0, 0, 1);
 	// Color = vec4(1,0,0,1);
 }

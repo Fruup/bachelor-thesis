@@ -8,14 +8,15 @@
 class BilateralBuffer
 {
 public:
-	enum _Type
+	enum Type
 	{
 		Depth,
 		Color,
 	};
 
 public:
-	void Init(_Type type);
+	void Init(Type type);
+	void Init(vk::ImageUsageFlags usage, vk::Format format, vk::ImageAspectFlags aspectFlags);
 	void Exit();
 
 	void CopyToGPU();
@@ -48,8 +49,6 @@ public:
 
 		vk::ImageLayout Layout;
 	} GPU;
-
-	_Type Type;
 
 	vk::ImageAspectFlags AspectFlags;
 	vk::Format Format;

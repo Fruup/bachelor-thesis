@@ -32,10 +32,13 @@ private:
 	void UpdateUniforms();
 
 private:
+	constexpr static int MaxKernelSize = 32;
+
 	struct
 	{
-		int GaussN = 1;
-		float Kernel[64 * 64];
+		int GaussN = 8;
+		float _unused[3];
+		float Kernel[MaxKernelSize * MaxKernelSize];
 	} Uniforms;
 
 	Buffer UniformBuffer;

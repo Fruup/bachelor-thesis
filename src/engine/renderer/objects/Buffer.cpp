@@ -54,7 +54,7 @@ void Buffer::Destroy()
 
 void Buffer::Map(void* source, vk::DeviceSize size, vk::DeviceSize offset)
 {
-	void* target = Renderer::GetInstance().Device.mapMemory(Memory, offset, size);
+	void* target = Vulkan.Device.mapMemory(Memory, offset, size);
 	memcpy(target, source, size);
-	Renderer::GetInstance().Device.unmapMemory(Memory);
+	Vulkan.Device.unmapMemory(Memory);
 }

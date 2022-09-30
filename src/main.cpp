@@ -4,6 +4,7 @@
 #include <engine/events/EventManager.h>
 #include <engine/renderer/Renderer.h>
 
+#include <engine/utils/PerformanceTimer.h>
 #include <engine/utils/Statistics.h>
 #include <engine/input/Input.h>
 
@@ -114,6 +115,8 @@ int main()
 
 	while (app.Data.Running)
 	{
+		PROFILE_SCOPE("Frame");
+
 		GlobalStatistics.Begin();
 
 		// input

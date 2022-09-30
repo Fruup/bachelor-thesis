@@ -8,11 +8,9 @@
 // -------------------------------------------------------------------------
 // PUBLIC FUNCTIONS
 
-void BilateralBuffer::Init(_Type type)
+void BilateralBuffer::Init(Type type)
 {
-	Type = type;
-
-	switch (Type)
+	switch (type)
 	{
 		case Color:
 		{
@@ -44,6 +42,22 @@ void BilateralBuffer::Init(_Type type)
 			HZ_ASSERT(false, "");
 	}
 
+	GPU.Layout = vk::ImageLayout::eUndefined;
+
+	CreateCPUSide();
+	CreateGPUSide();
+}
+
+void BilateralBuffer::Init(vk::ImageUsageFlags usage, vk::Format format, vk::ImageAspectFlags aspectFlags)
+{
+	Usage = usage;
+	Format = format;
+	AspectFlags = aspectFlags;
+	Size =
+		4 * sizeof(float) *
+		Vulkan.SwapchainExtent.width *
+		Vulkan.SwapchainExtent.height;
+	
 	GPU.Layout = vk::ImageLayout::eUndefined;
 
 	CreateCPUSide();
@@ -254,21 +268,6 @@ void BilateralBuffer::TransitionLayout(vk::ImageLayout newLayout,
 
 	vk::ImageLayout oldLayout = GPU.Layout;
 	GPU.Layout = newLayout;
-
-	/*vk::AccessFlagBits accessMask;
-	switch (newLayout)
-	{
-		case vk::ImageLayout::eTransferDstOptimal:
-			accessMask = vk::AccessFlagBits::eTransferWrite;
-			break;
-
-		case vk::ImageLayout::eTransferSrcOptimal:
-			accessMask = vk::AccessFlagBits::eTransferRead;
-			break;
-
-		default:
-			HZ_ASSERT(false, "");
-	}*/
 
 	vk::ImageMemoryBarrier barrier;
 	barrier
