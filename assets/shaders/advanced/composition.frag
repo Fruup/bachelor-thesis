@@ -16,6 +16,7 @@ layout (std140, binding = 0) uniform UNIFORMS
 } Uniforms;
 
 layout (binding = 1) uniform sampler2D Positions;
+layout (binding = 3) uniform sampler2D SmoothedDepth;
 // layout (binding = 2) uniform sampler2D Normals;
 // layout (binding = 3) uniform sampler2D Depth;
 
@@ -32,10 +33,25 @@ layout (location = 8) in vec2 br;
 layout (location = 0) out vec4 Color;
 
 vec3 position(vec2 uv) { return texture(Positions, uv).xyz; }
+
+vec3 smoothedPosition(vec2 uv)
+{
+	vec4 screenH =
+		Uniforms.InvProjection *
+		vec4(2 * uv - 1, texture(SmoothedDepth, uv).r, 1);
+
+	return screenH.xyz / screenH.w;
+}
+
 // float depth(vec2 uv) { return texture(Positions, uv).z; }
 
 void main()
 {
+	if (texture(SmoothedDepth, UV).r > 0.999)
+	{
+		discard;
+	}
+
 	// if (position.xyz == vec3(0))
 	// {
 	// 	Color = vec4(1, 1, 0, 1);
@@ -49,10 +65,17 @@ void main()
 	const vec2 top = tm;
 	const vec2 bottom = bm;
 
-	vec3 dx = position(right) - position(left);
-	vec3 dy = position(top) - position(bottom);
+	vec3 pcenter = smoothedPosition(UV);
+	// vec3 dx = smoothedPosition(right) - pcenter;
+	// vec3 dy = smoothedPosition(top) - pcenter;
+	vec3 dx = smoothedPosition(right) - smoothedPosition(left);
+	vec3 dy = smoothedPosition(top) - smoothedPosition(bottom);
 
-	const vec3 normal = normalize(cross(vec3(dx.x, 0, dx.z), vec3(0, dy.y, dy.z)));
+	const vec3 normal = normalize(cross(dx, dy));
+
+	Color = vec4(normal, 1);
+	return;
+
 	const float diffuse = dot(normal, Uniforms.LightDirection);
 
 	const float specular = pow(max(dot(-Uniforms.LightDirection, normalize(reflect(normal, Uniforms.CameraPosition - world))), 0), SpecularExponent);

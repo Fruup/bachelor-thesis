@@ -303,6 +303,10 @@ void AdvancedRenderer::Render()
 									 vk::PipelineStageFlagBits::eColorAttachmentOutput);
 #endif
 
+		PositionsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
+										 vk::AccessFlagBits::eColorAttachmentRead,
+										 vk::PipelineStageFlagBits::eColorAttachmentOutput);
+
 		SmoothedDepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
 											 vk::AccessFlagBits::eColorAttachmentRead,
 											 vk::PipelineStageFlagBits::eColorAttachmentOutput);
@@ -315,13 +319,13 @@ void AdvancedRenderer::Render()
 							  vk::PipelineStageFlagBits::eTopOfPipe,
 							  vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
-		ShowImageRenderPass.Begin();
+		/*ShowImageRenderPass.Begin();
 		DrawFullscreenQuad();
-		ShowImageRenderPass.End();
+		ShowImageRenderPass.End();*/
 
-		/*CompositionRenderPass.Begin();
+		CompositionRenderPass.Begin();
 		DrawFullscreenQuad();
-		CompositionRenderPass.End();*/
+		CompositionRenderPass.End();
 	}
 
 	//   Done in Renderer:

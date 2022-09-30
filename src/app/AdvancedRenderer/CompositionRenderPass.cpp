@@ -253,10 +253,18 @@ void CompositionRenderPass::CreateDescriptorSetLayout()
 		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
 		.setStageFlags(vk::ShaderStageFlagBits::eFragment);
 
-	std::array<vk::DescriptorSetLayoutBinding, 3> bindings = {
+	vk::DescriptorSetLayoutBinding smoothedDepthAttachment;
+	smoothedDepthAttachment
+		.setBinding(3)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+		.setStageFlags(vk::ShaderStageFlagBits::eFragment);
+
+	std::array<vk::DescriptorSetLayoutBinding, 4> bindings = {
 		uniformBuffer,
 		uniformBufferFullscreen,
 		positionsAttachment,
+		smoothedDepthAttachment,
 	};
 
 	vk::DescriptorSetLayoutCreateInfo info({}, bindings);
@@ -364,11 +372,28 @@ void CompositionRenderPass::UpdateDescriptorSets()
 		.setDstBinding(1)
 		.setDstSet(DescriptorSet);
 
+	// smoothed depth
+	vk::DescriptorImageInfo smoothedDepthImageInfo;
+	smoothedDepthImageInfo
+		.setImageView(Renderer.SmoothedDepthBuffer.GPU.ImageView)
+		.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+		.setSampler(Renderer.SmoothedDepthBuffer.GPU.Sampler);
+
+	vk::WriteDescriptorSet writeSmoothedDepth;
+	writeSmoothedDepth
+		.setImageInfo(smoothedDepthImageInfo)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+		.setDstArrayElement(0)
+		.setDstBinding(3)
+		.setDstSet(DescriptorSet);
+
 	// write
-	std::array<vk::WriteDescriptorSet, 3> writes = {
+	std::array<vk::WriteDescriptorSet, 4> writes = {
 		writeUniform,
 		writeUniformFullscreen,
 		writePositions,
+		writeSmoothedDepth,
 	};
 
 	Vulkan.Device.updateDescriptorSets(writes, {});
