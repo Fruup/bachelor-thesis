@@ -23,15 +23,9 @@ public:
 	TimePoint Start;
 
 public:
-	template <size_t Size>
+	template <size_t Capacity>
 	struct Timeline
 	{
-		Timeline()
-		{
-			for (size_t i = 0; i < Size; ++i)
-				Values[i] = Duration::min();
-		}
-
 		Duration GetAverage() const
 		{
 			Duration r = Values[0];
@@ -41,11 +35,13 @@ public:
 
 		void Add(Duration x)
 		{
-			Values[Index++ % Size] = x;
+			Values[Index++ % Capacity] = x;
+			if (Size < Capacity) Size++;
 		}
 
 		int Index = 0;
-		Duration Values[Size];
+		uint32_t Size = 0;
+		Duration Values[Capacity];
 	};
 
 	static struct _Storage

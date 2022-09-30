@@ -105,4 +105,5 @@ public:
 	ImGuiRenderPass ImGuiRenderPass;
 };
 
-static Renderer& Vulkan = Renderer::GetInstance();
+//static Renderer& Vulkan = Renderer::GetInstance();
+#define Vulkan Renderer::GetInstance()

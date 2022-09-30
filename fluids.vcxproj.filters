@@ -159,6 +159,8 @@
     <ClInclude Include="vendor\imgui\backends\imgui_impl_vulkan.h">
       <Filter>vendor\imgui\backends</Filter>
     </ClInclude>
+    <ClInclude Include="src\app\AdvancedRenderer\GaussRenderPass.h" />
+    <ClInclude Include="src\app\AdvancedRenderer\ShowImageRenderPass.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\app\AdvancedRenderer\AdvancedRenderer.cpp">
@@ -263,5 +265,7 @@
     <ClCompile Include="vendor\imgui\backends\imgui_impl_vulkan.cpp">
       <Filter>vendor\imgui\backends</Filter>
     </ClCompile>
+    <ClCompile Include="src\app\AdvancedRenderer\GaussRenderPass.cpp" />
+    <ClCompile Include="src\app\AdvancedRenderer\ShowImageRenderPass.cpp" />
   </ItemGroup>
 </Project>

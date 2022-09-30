@@ -8,6 +8,8 @@
 #include "BilateralBuffer.h"
 #include "DepthRenderPass.h"
 #include "CompositionRenderPass.h"
+#include "GaussRenderPass.h"
+#include "ShowImageRenderPass.h"
 
 class Event;
 
@@ -40,21 +42,23 @@ private:
 
 	void DrawDepthPass();
 	void RayMarch();
-	void DrawCompositionPass();
+	void DrawFullscreenQuad();
 
 	float ComputeDensity(const glm::vec3& x);
 
 public:
 	DepthRenderPass DepthRenderPass;
+	GaussRenderPass GaussRenderPass;
 	CompositionRenderPass CompositionRenderPass;
+	ShowImageRenderPass ShowImageRenderPass;
 
-	BilateralBuffer DepthBuffer;
+	BilateralBuffer DepthBuffer, SmoothedDepthBuffer;
 	BilateralBuffer PositionsBuffer;
 	BilateralBuffer NormalsBuffer;
 
 	VertexBuffer VertexBuffer;
 
-	Dataset* Dataset;
+	Dataset* Dataset = nullptr;
 	int CurrentFrame = 0;
 
 	uint32_t NumVertices = 0;

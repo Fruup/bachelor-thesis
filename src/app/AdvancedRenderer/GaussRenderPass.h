@@ -5,10 +5,10 @@
 
 class AdvancedRenderer;
 
-class CompositionRenderPass
+class GaussRenderPass
 {
 public:
-	CompositionRenderPass(AdvancedRenderer& renderer);
+	GaussRenderPass(AdvancedRenderer& renderer);
 
 	void Init();
 	void Exit();
@@ -16,7 +16,10 @@ public:
 	void Begin();
 	void End();
 
+	void RenderUI();
+
 private:
+	void CreateUniformBuffer();
 	void CreateShaders();
 
 	void CreatePipelineLayout();
@@ -25,14 +28,18 @@ private:
 	void CreateDescriptorSetLayout();
 	void CreateDescriptorSet();
 
-	void CreateUniformBuffer();
-
+	void UpdateDescriptorSet();
 	void UpdateUniforms();
-	void UpdateUniformsFullscreen();
 
-	void UpdateDescriptorSets();
+private:
+	struct
+	{
+		int GaussN = 1;
+		float Kernel[64 * 64];
+	} Uniforms;
 
-public:
+	Buffer UniformBuffer;
+
 	vk::Pipeline Pipeline;
 	vk::PipelineLayout PipelineLayout;
 
@@ -42,18 +49,6 @@ public:
 	Shader VertexShader, FragmentShader;
 
 	AdvancedRenderer& Renderer;
-
-	struct
-	{
-		glm::mat4 InvProjection;
-
-		glm::vec3 CameraPosition;
-		glm::vec3 CameraDirection;
-
-		glm::vec3 LightDirection;
-	} Uniforms;
-
-	Buffer UniformBuffer;
 
 	struct
 	{

@@ -1,8 +1,9 @@
 #version 460
 
-const vec4 DiffuseColor = vec4(1, 1, 1, 1);
-const vec4 SpecularColor = vec4(1, 0, 0, 1);
-const float SpecularExponent = 5;
+const vec4 DiffuseColor = vec4(52, 125, 235, 255) / 255;
+const vec4 SpecularColor = vec4(1, 1, 1, 1);
+const vec4 AmbientColor = vec4(vec3(0.1), 1);
+const float SpecularExponent = 10;
 
 layout (std140, binding = 0) uniform UNIFORMS
 {
@@ -30,24 +31,40 @@ layout (location = 8) in vec2 br;
 
 layout (location = 0) out vec4 Color;
 
-const mat3 K = (1/8) * mat3(
-	vec3(-1, 0, +1),
-	vec3(-2, 0, +2),
-	vec3(-1, 0, +1)
-);
-
-float position(vec2 uv) { return length(texture(Positions, uv).xyz); }
+vec3 position(vec2 uv) { return texture(Positions, uv).xyz; }
+// float depth(vec2 uv) { return texture(Positions, uv).z; }
 
 void main()
 {
-	// const float f =
-	// 	K[0][0] * position(tl) + K[1][0] * position(tm) + K[2][0] * position(tr) +
-	// 	K[0][1] * position(ml) + K[1][1] * position(UV) + K[2][1] * position(mr) +
-	// 	K[0][2] * position(bl) + K[1][2] * position(bm) + K[2][2] * position(br);
+	// if (position.xyz == vec3(0))
+	// {
+	// 	Color = vec4(1, 1, 0, 1);
+	// 	return;
+	// }
 
-	const float f = position(UV);
+	const vec3 world = position(UV);
 
-	Color = vec4(abs(texture(Positions, UV).xyz), 1);
+	const vec2 left = ml;
+	const vec2 right = mr;
+	const vec2 top = tm;
+	const vec2 bottom = bm;
+
+	vec3 dx = position(right) - position(left);
+	vec3 dy = position(top) - position(bottom);
+
+	const vec3 normal = normalize(cross(vec3(dx.x, 0, dx.z), vec3(0, dy.y, dy.z)));
+	const float diffuse = dot(normal, Uniforms.LightDirection);
+
+	const float specular = pow(max(dot(-Uniforms.LightDirection, normalize(reflect(normal, Uniforms.CameraPosition - world))), 0), SpecularExponent);
+
+	// Color = vec4(-vec3(world.z - 3) / 5, 1);
+
+	Color =
+		DiffuseColor * diffuse +
+		SpecularColor * specular +
+		AmbientColor;
+
+	// Color = vec4(texture(Positions, UV).xyz, 1);
 	// Color = vec4(Positions.xyz, 1);
 	// Color = vec4(UV, 0, 1);
 	// Color = vec4(1, 0, 0, 1);
@@ -91,4 +108,24 @@ void main()
 	// Color = vec4(subpassLoad(Position).xyz, 1);
 	// Color = vec4(vec3(subpassLoad(Depth).r), 1);
 }
+#endif
+
+#if 0
+	const mat3 K = (1/8) * mat3(
+		vec3(-1, 0, +1),
+		vec3(-2, 0, +2),
+		vec3(-1, 0, +1)
+	);
+
+	const float dzdx = (1 / delta) * (
+		K[0][0] * depth(tl) + K[1][0] * depth(tm) + K[2][0] * depth(tr) +
+		K[0][1] * depth(ml) + K[1][1] * depth(UV) + K[2][1] * depth(mr) +
+		K[0][2] * depth(bl) + K[1][2] * depth(bm) + K[2][2] * depth(br)
+	);
+
+	const float dzdy = (1 / delta) * (
+		K[0][0] * depth(tl) + K[0][1] * depth(tm) + K[0][2] * depth(tr) +
+		K[1][0] * depth(ml) + K[1][1] * depth(UV) + K[1][2] * depth(mr) +
+		K[2][0] * depth(bl) + K[2][1] * depth(bm) + K[2][2] * depth(br)
+	);
 #endif

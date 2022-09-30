@@ -5,10 +5,10 @@
 
 class AdvancedRenderer;
 
-class CompositionRenderPass
+class ShowImageRenderPass
 {
 public:
-	CompositionRenderPass(AdvancedRenderer& renderer);
+	ShowImageRenderPass(AdvancedRenderer& renderer);
 
 	void Init();
 	void Exit();
@@ -27,7 +27,6 @@ private:
 
 	void CreateUniformBuffer();
 
-	void UpdateUniforms();
 	void UpdateUniformsFullscreen();
 
 	void UpdateDescriptorSets();
@@ -45,21 +44,11 @@ public:
 
 	struct
 	{
-		glm::mat4 InvProjection;
-
-		glm::vec3 CameraPosition;
-		glm::vec3 CameraDirection;
-
-		glm::vec3 LightDirection;
-	} Uniforms;
-
-	Buffer UniformBuffer;
-
-	struct
-	{
 		float TexelWidth;
 		float TexelHeight;
 	} UniformsFullscreen;
 
 	Buffer UniformBufferFullscreen;
+
+	vk::ImageView ImageView;
 };

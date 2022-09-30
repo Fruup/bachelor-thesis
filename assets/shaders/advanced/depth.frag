@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 #define PI_OVER_TWO (1.57079632679)
 
@@ -19,21 +19,16 @@ layout (location = 0) in FRAGMENT_IN
 void main()
 {
 	// compute spherical offset from UVs
-	vec2 r = 2 * Input.UV - 1;
-	float l = length(r);
-
+	const float l = length(2 * Input.UV - 1);
 	if (l > 1) discard;
 
-	float sphericalOffset = cos(PI_OVER_TWO * l);
+	const float sphericalOffset = cos(PI_OVER_TWO * l);
 
 	// project view space z coordinate to screen
-	vec3 pView = Input.ViewPosition - Uniforms.Radius * vec3(0, 0, sphericalOffset);
+	const vec3 pView = Input.ViewPosition - Uniforms.Radius * vec3(0, 0, sphericalOffset);
 
-	vec4 pScreen = Uniforms.Projection * vec4(pView, 1);
-	float zScreen = pScreen.z;
+	const vec4 pScreen = Uniforms.Projection * vec4(pView, 1);
+	const float zScreen = pScreen.z / pScreen.w;
 
-	//gl_FragDepth = zScreen;
-	gl_FragDepth = .42;
-	//FragColor = vec4(vec3(zScreen), 1);
-	//FragColor = vec4(vec3(sphericalOffset), 1);
+	gl_FragDepth = zScreen;
 }

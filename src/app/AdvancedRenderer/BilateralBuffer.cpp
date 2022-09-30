@@ -6,10 +6,6 @@
 #include <engine/renderer/objects/Command.h>
 
 // -------------------------------------------------------------------------
-
-//auto& Vulkan = Renderer::GetInstance();
-
-// -------------------------------------------------------------------------
 // PUBLIC FUNCTIONS
 
 void BilateralBuffer::Init(_Type type)
@@ -32,7 +28,9 @@ void BilateralBuffer::Init(_Type type)
 
 		case Depth:
 		{
-			Usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+			Usage =
+				vk::ImageUsageFlagBits::eDepthStencilAttachment |
+				vk::ImageUsageFlagBits::eSampled;
 			Format = vk::Format::eD32Sfloat;
 			AspectFlags = vk::ImageAspectFlagBits::eDepth;
 			//GPU.Layout = vk::ImageLayout::eDepthAttachmentOptimal;

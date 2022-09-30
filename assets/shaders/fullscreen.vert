@@ -1,6 +1,6 @@
 #version 460
 
-layout (std140, binding = 0) uniform UNIFORMS
+layout (std140, binding = 2) uniform UNIFORMS
 {
 	float TexelWidth;
 	float TexelHeight;
@@ -25,10 +25,10 @@ void main()
 	else if (gl_VertexIndex == 2)
 		UV = vec2(1, 0);
 
-	// const float w = Uniforms.TexelWidth;
-	// const float h = Uniforms.TexelHeight;
-	const float w = 0.001;
-	const float h = 0.001;
+	const float w = Uniforms.TexelWidth;
+	const float h = Uniforms.TexelHeight;
+	// const float w = 0.001;
+	// const float h = 0.001;
 
 	tl = UV + vec2(-w, -h);
 	tm = UV + vec2( 0, -h);

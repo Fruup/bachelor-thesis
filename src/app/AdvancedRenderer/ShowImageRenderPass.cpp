@@ -1,20 +1,29 @@
-#include "engine/hzpch.h"
+#include <engine/hzpch.h>
 
-#include "DepthRenderPass.h"
+#include "ShowImageRenderPass.h"
+
 #include "AdvancedRenderer.h"
 
 #include <engine/renderer/Renderer.h>
 #include <engine/renderer/objects/Shader.h>
 
 // --------------------------------------------------------------------
+
+constexpr std::array<float, 4> ClearColor = {
+	0.1f, 0.1f, 0.1f, 1.0f,
+};
+
+constexpr vk::ClearValue ClearValue = vk::ClearColorValue(ClearColor);
+
+// --------------------------------------------------------------------
 // PUBLIC FUNCTIONS
 
-DepthRenderPass::DepthRenderPass(AdvancedRenderer& renderer) :
+ShowImageRenderPass::ShowImageRenderPass(AdvancedRenderer& renderer) :
 	Renderer(renderer)
 {
 }
 
-void DepthRenderPass::Init()
+void ShowImageRenderPass::Init()
 {
 	CreateShaders();
 
@@ -25,41 +34,42 @@ void DepthRenderPass::Init()
 	CreatePipeline();
 
 	CreateUniformBuffer();
+	UpdateUniformsFullscreen();
 
 	UpdateDescriptorSets();
 }
 
-void DepthRenderPass::Exit()
+void ShowImageRenderPass::Exit()
 {
 	Vulkan.Device.destroyDescriptorSetLayout(DescriptorSetLayout);
 
 	Vulkan.Device.destroyPipelineLayout(PipelineLayout);
 	Vulkan.Device.destroyPipeline(Pipeline);
-	
+
 	VertexShader.Destroy();
 	FragmentShader.Destroy();
 
-	UniformBuffer.Destroy();
+	UniformBufferFullscreen.Destroy();
 }
 
-void DepthRenderPass::Begin()
+void ShowImageRenderPass::Begin()
 {
-	// update uniforms
-	UpdateUniforms();
-	// UpdateDescriptorSets();
-
 	// begin rendering
-	vk::RenderingAttachmentInfo depthAttachment;
-	depthAttachment
-		.setClearValue(vk::ClearDepthStencilValue(1.0f))
-		.setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
-		.setImageView(Renderer.DepthBuffer.GPU.ImageView)
+	vk::RenderingAttachmentInfo screenAttachment;
+	screenAttachment
+		.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+		.setImageView(Vulkan.SwapchainImageViews[Vulkan.CurrentImageIndex])
+		.setClearValue(ClearValue)
 		.setLoadOp(vk::AttachmentLoadOp::eClear)
 		.setStoreOp(vk::AttachmentStoreOp::eStore);
 
+	std::array<vk::RenderingAttachmentInfo, 1> attachments = {
+		screenAttachment,
+	};
+
 	vk::RenderingInfo renderingInfo;
 	renderingInfo
-		.setPDepthAttachment(&depthAttachment)
+		.setColorAttachments(attachments)
 		.setLayerCount(1)
 		.setRenderArea(vk::Rect2D({ 0, 0 }, Vulkan.SwapchainExtent ))
 		.setViewMask(0);
@@ -81,7 +91,7 @@ void DepthRenderPass::Begin()
 	);
 }
 
-void DepthRenderPass::End()
+void ShowImageRenderPass::End()
 {
 	Vulkan.CommandBuffer.endRendering();
 }
@@ -89,18 +99,18 @@ void DepthRenderPass::End()
 // --------------------------------------------------------------------
 // PRIVATE HELPER FUNCTIONS
 
-void DepthRenderPass::CreateShaders()
+void ShowImageRenderPass::CreateShaders()
 {
 	VertexShader.Create(
-		"shaders/advanced/depth.vert",
+		"shaders/fullscreen.vert",
 		vk::ShaderStageFlagBits::eVertex);
 
 	FragmentShader.Create(
-		"shaders/advanced/depth.frag",
+		"shaders/showImage.frag",
 		vk::ShaderStageFlagBits::eFragment);
 }
 
-void DepthRenderPass::CreatePipelineLayout()
+void ShowImageRenderPass::CreatePipelineLayout()
 {
 	vk::PipelineLayoutCreateInfo info;
 	info.setSetLayoutCount(1)
@@ -109,7 +119,7 @@ void DepthRenderPass::CreatePipelineLayout()
 	PipelineLayout = Vulkan.Device.createPipelineLayout(info);
 }
 
-void DepthRenderPass::CreatePipeline()
+void ShowImageRenderPass::CreatePipeline()
 {
 	// shader stages
 	std::array<vk::PipelineShaderStageCreateInfo, 2> stages = {
@@ -163,27 +173,20 @@ void DepthRenderPass::CreatePipeline()
 		.setRasterizationSamples(vk::SampleCountFlagBits::e1);
 
 	// blending
-	vk::PipelineColorBlendAttachmentState blendAttachment;
-	blendAttachment.setBlendEnable(false);
-
 	vk::PipelineColorBlendStateCreateInfo blendState;
-	blendState
-		.setLogicOpEnable(false)
-		.setAttachments(blendAttachment);
+	blendState.setLogicOpEnable(false);
 
 	// depth state
 	vk::PipelineDepthStencilStateCreateInfo depthStencilState;
 	depthStencilState
-		.setDepthTestEnable(true)
-		.setDepthWriteEnable(true)
-		.setDepthCompareOp(vk::CompareOp::eLessOrEqual)
+		.setDepthTestEnable(false)
+		.setDepthWriteEnable(false)
 		.setDepthBoundsTestEnable(false)
 		.setStencilTestEnable(false);
 
 	// rendering info
 	vk::PipelineRenderingCreateInfo renderingPipelineCreateInfo;
-	renderingPipelineCreateInfo
-		.setDepthAttachmentFormat(Renderer.DepthBuffer.Format);
+	renderingPipelineCreateInfo.setViewMask(0);
 
 	// pipeline
 	vk::GraphicsPipelineCreateInfo pipelineCreateInfo;
@@ -205,20 +208,32 @@ void DepthRenderPass::CreatePipeline()
 	Pipeline = r.value;
 }
 
-void DepthRenderPass::CreateDescriptorSetLayout()
+void ShowImageRenderPass::CreateDescriptorSetLayout()
 {
-	vk::DescriptorSetLayoutBinding binding;
-	binding
-		.setBinding(0)
+	vk::DescriptorSetLayoutBinding uniformBufferFullscreen;
+	uniformBufferFullscreen
+		.setBinding(2)
 		.setDescriptorCount(1)
 		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-		.setStageFlags(vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment);
+		.setStageFlags(vk::ShaderStageFlagBits::eVertex);
 
-	vk::DescriptorSetLayoutCreateInfo info({}, binding);
+	vk::DescriptorSetLayoutBinding depthAttachment;
+	depthAttachment
+		.setBinding(0)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+		.setStageFlags(vk::ShaderStageFlagBits::eFragment);
+
+	std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {
+		uniformBufferFullscreen,
+		depthAttachment,
+	};
+
+	vk::DescriptorSetLayoutCreateInfo info({}, bindings);
 	DescriptorSetLayout = Vulkan.Device.createDescriptorSetLayout(info);
 }
 
-void DepthRenderPass::CreateDescriptorSet()
+void ShowImageRenderPass::CreateDescriptorSet()
 {
 	vk::DescriptorSetAllocateInfo info;
 	info.setDescriptorPool(Vulkan.DescriptorPool)
@@ -230,45 +245,63 @@ void DepthRenderPass::CreateDescriptorSet()
 	DescriptorSet = r.front();
 }
 
-void DepthRenderPass::CreateUniformBuffer()
+void ShowImageRenderPass::CreateUniformBuffer()
 {
-	UniformBuffer.Create(
-		sizeof(Uniforms),
+	UniformBufferFullscreen.Create(
+		sizeof(UniformsFullscreen),
 		vk::BufferUsageFlagBits::eUniformBuffer,
 		vk::MemoryPropertyFlagBits::eHostVisible |
 		vk::MemoryPropertyFlagBits::eHostCoherent
 	);
 }
 
-void DepthRenderPass::UpdateUniforms()
+void ShowImageRenderPass::UpdateUniformsFullscreen()
 {
-	Uniforms.Projection = Renderer.Camera.GetProjection();
-	Uniforms.View = Renderer.Camera.GetView();
-	Uniforms.Radius = Renderer.Dataset->ParticleRadius;
+	UniformsFullscreen.TexelWidth = float(1.0f) / float(Vulkan.SwapchainExtent.width);
+	UniformsFullscreen.TexelHeight = float(1.0f) / float(Vulkan.SwapchainExtent.height);
 
 	// copy
-	UniformBuffer.Map(&Uniforms, sizeof(Uniforms));
+	UniformBufferFullscreen.Map(&UniformsFullscreen, sizeof(UniformsFullscreen));
 }
 
-void DepthRenderPass::UpdateDescriptorSets()
+void ShowImageRenderPass::UpdateDescriptorSets()
 {
-	vk::DescriptorBufferInfo bufferInfo;
-	bufferInfo
-		.setBuffer(UniformBuffer)
+	// uniforms fullscreen
+	vk::DescriptorBufferInfo bufferFullscreenInfo;
+	bufferFullscreenInfo
+		.setBuffer(UniformBufferFullscreen)
 		.setOffset(0)
 		.setRange(VK_WHOLE_SIZE);
 
-	vk::WriteDescriptorSet writeUniform;
-	writeUniform
-		.setBufferInfo(bufferInfo)
+	vk::WriteDescriptorSet writeUniformFullscreen;
+	writeUniformFullscreen
+		.setBufferInfo(bufferFullscreenInfo)
 		.setDescriptorCount(1)
 		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
+		.setDstArrayElement(0)
+		.setDstBinding(2)
+		.setDstSet(DescriptorSet);
+
+	// smoothed depth
+	vk::DescriptorImageInfo depthImageInfo;
+	depthImageInfo
+		.setImageView(Renderer.SmoothedDepthBuffer.GPU.ImageView)
+		.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+		.setSampler(Renderer.SmoothedDepthBuffer.GPU.Sampler);
+
+	vk::WriteDescriptorSet writeDepth;
+	writeDepth
+		.setImageInfo(depthImageInfo)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
 		.setDstArrayElement(0)
 		.setDstBinding(0)
 		.setDstSet(DescriptorSet);
 
-	std::array<vk::WriteDescriptorSet, 1> writes = {
-		writeUniform
+	// write
+	std::array<vk::WriteDescriptorSet, 2> writes = {
+		writeUniformFullscreen,
+		writeDepth,
 	};
 
 	Vulkan.Device.updateDescriptorSets(writes, {});

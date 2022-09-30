@@ -145,6 +145,8 @@
     <ClInclude Include="src\app\AdvancedRenderer\BilateralBuffer.h" />
     <ClInclude Include="src\app\AdvancedRenderer\CompositionRenderPass.h" />
     <ClInclude Include="src\app\AdvancedRenderer\DepthRenderPass.h" />
+    <ClInclude Include="src\app\AdvancedRenderer\GaussRenderPass.h" />
+    <ClInclude Include="src\app\AdvancedRenderer\ShowImageRenderPass.h" />
     <ClInclude Include="src\app\Dataset.h" />
     <ClInclude Include="src\app\Kernel.h" />
     <ClInclude Include="src\engine\Application.h" />
@@ -183,6 +185,8 @@
     <ClCompile Include="src\app\AdvancedRenderer\BilateralBuffer.cpp" />
     <ClCompile Include="src\app\AdvancedRenderer\CompositionRenderPass.cpp" />
     <ClCompile Include="src\app\AdvancedRenderer\DepthRenderPass.cpp" />
+    <ClCompile Include="src\app\AdvancedRenderer\GaussRenderPass.cpp" />
+    <ClCompile Include="src\app\AdvancedRenderer\ShowImageRenderPass.cpp" />
     <ClCompile Include="src\app\Dataset.cpp" />
     <ClCompile Include="src\app\Kernel.cpp" />
     <ClCompile Include="src\engine\Application.cpp" />

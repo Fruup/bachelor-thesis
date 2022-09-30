@@ -1,4 +1,4 @@
-#version 450
+#version 460
 
 layout (std140, binding = 0) uniform UNIFORMS
 {
@@ -24,7 +24,7 @@ out gl_PerVertex
 
 void main()
 {
-	vec4 viewPosition = Uniforms.View * vec4(a_Position, 1);
+	const vec4 viewPosition = Uniforms.View * vec4(a_Position, 1);
 
 	Output.ViewPosition = viewPosition.xyz;
 	Output.UV = a_UV;

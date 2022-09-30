@@ -10,6 +10,7 @@
 #include "app/Kernel.h"
 
 #include <fstream>
+#include <thread>
 
 // ------------------------------------------------------------------------
 
@@ -17,7 +18,14 @@ static int s_MaxSteps = 16;
 static float s_StepSize = 0.01f;
 static float s_IsoDensity = 1.0f;
 
-static bool s_Process = true;
+static float s_ProcessTimer = 0.0f;
+constexpr const float s_ProcessTimerMax = 1.0f;
+
+std::thread RayMarchThread;
+std::atomic_bool RayMarchFinished = true;
+std::condition_variable ConditionVariable;
+std::mutex Mutex;
+bool ShouldTerminateThread = true;
 
 // ------------------------------------------------------------------------
 
@@ -88,6 +96,8 @@ void TransitionImageLayout(vk::Image image,
 AdvancedRenderer::AdvancedRenderer() :
 	DepthRenderPass(*this),
 	CompositionRenderPass(*this),
+	GaussRenderPass(*this),
+	ShowImageRenderPass(*this),
 	CameraController(Camera)
 {
 }
@@ -97,11 +107,14 @@ void AdvancedRenderer::Init(::Dataset* dataset)
 	Dataset = dataset;
 
 	DepthBuffer.Init(BilateralBuffer::Depth);
+	SmoothedDepthBuffer.Init(BilateralBuffer::Depth);
 	PositionsBuffer.Init(BilateralBuffer::Color);
 	NormalsBuffer.Init(BilateralBuffer::Color);
 
 	DepthRenderPass.Init();
 	CompositionRenderPass.Init();
+	GaussRenderPass.Init();
+	ShowImageRenderPass.Init();
 
 	VertexBuffer.Create(6 * Dataset->MaxParticles * sizeof(Vertex));
 
@@ -116,23 +129,36 @@ void AdvancedRenderer::Init(::Dataset* dataset)
 	CameraController.SetPosition({ 0, 3, -5 });
 	CameraController.SetOrientation(glm::quatLookAtLH(-glm::normalize(CameraController.Position), { 0, 1, 0 }));
 	CameraController.ComputeMatrices();
+
+	// start worker thread
+	RayMarchThread = std::thread(&AdvancedRenderer::RayMarch, this);
 }
 
 void AdvancedRenderer::Exit()
 {
+	ShouldTerminateThread = true;
+	ConditionVariable.notify_all();
+	if (RayMarchThread.joinable())
+		RayMarchThread.join();
+
 	delete Dataset;
 	VertexBuffer.Destroy();
 
+	ShowImageRenderPass.Exit();
+	GaussRenderPass.Exit();
 	CompositionRenderPass.Exit();
 	DepthRenderPass.Exit();
 
 	NormalsBuffer.Exit();
 	PositionsBuffer.Exit();
+	SmoothedDepthBuffer.Exit();
 	DepthBuffer.Exit();
 }
 
 void AdvancedRenderer::Update(float time)
 {
+	s_ProcessTimer += time;
+
 	CameraController.Update(time);
 }
 
@@ -151,6 +177,10 @@ void AdvancedRenderer::Render()
 	// - begin depth pass
 	// - render scene
 	// - end depth pass
+	// 
+	// - begin gauss pass
+	// - render gauss pass
+	// - end gauss pass
 	// 
 	// - end command buffer
 	// - submit command buffer
@@ -176,63 +206,120 @@ void AdvancedRenderer::Render()
 
 	//   Done in Renderer:
 	// begin command buffer
+	
+	{
+		PROFILE_SCOPE("Pre-marching");
 
-	CollectRenderData();
+		CollectRenderData();
 
-	DepthBuffer.TransitionLayout(vk::ImageLayout::eDepthAttachmentOptimal,
-								 vk::AccessFlagBits::eDepthStencilAttachmentRead,
-								 vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests);
+		DepthBuffer.TransitionLayout(vk::ImageLayout::eDepthAttachmentOptimal,
+									 vk::AccessFlagBits::eDepthStencilAttachmentRead,
+									 // vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+									 vk::PipelineStageFlagBits::eEarlyFragmentTests |
+									 vk::PipelineStageFlagBits::eLateFragmentTests);
 
-	DepthRenderPass.Begin();
-	DrawDepthPass();
-	DepthRenderPass.End();
+		DepthRenderPass.Begin();
+		DrawDepthPass();
+		DepthRenderPass.End();
 
-	DepthBuffer.TransitionLayout(vk::ImageLayout::eTransferSrcOptimal,
-								 vk::AccessFlagBits::eTransferRead,
-								 vk::PipelineStageFlagBits::eTransfer);
-
-	PositionsBuffer.TransitionLayout(vk::ImageLayout::eTransferDstOptimal,
-									 vk::AccessFlagBits::eTransferWrite,
-									 vk::PipelineStageFlagBits::eTransfer);
-
-	NormalsBuffer.TransitionLayout(vk::ImageLayout::eTransferDstOptimal,
-								   vk::AccessFlagBits::eTransferWrite,
-								   vk::PipelineStageFlagBits::eTransfer);
-
-	Vulkan.CommandBuffer.end();
-	Vulkan.Submit();
-	Vulkan.WaitForRenderingFinished();
-
-	DepthBuffer.CopyFromGPU();
-
-	RayMarch();
-
-	PositionsBuffer.CopyToGPU();
-	NormalsBuffer.CopyToGPU();
-
-	Vulkan.CommandBuffer.reset();
-	vk::CommandBufferBeginInfo beginInfo;
-	Vulkan.CommandBuffer.begin(beginInfo);
-
-	PositionsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
+		DepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
 									 vk::AccessFlagBits::eColorAttachmentRead,
 									 vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
-	NormalsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
-								   vk::AccessFlagBits::eColorAttachmentRead,
-								   vk::PipelineStageFlagBits::eColorAttachmentOutput);
+		SmoothedDepthBuffer.TransitionLayout(vk::ImageLayout::eDepthAttachmentOptimal,
+									 vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+									 // vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+									 vk::PipelineStageFlagBits::eEarlyFragmentTests |
+									 vk::PipelineStageFlagBits::eLateFragmentTests);
 
-	TransitionImageLayout(Vulkan.SwapchainImages[Vulkan.CurrentImageIndex],
-						  vk::ImageLayout::eUndefined,
-						  vk::ImageLayout::eColorAttachmentOptimal,
-						  {},
-						  vk::AccessFlagBits::eColorAttachmentWrite,
-						  vk::PipelineStageFlagBits::eTopOfPipe,
-						  vk::PipelineStageFlagBits::eColorAttachmentOutput);
+		GaussRenderPass.Begin();
+		DrawFullscreenQuad();
+		GaussRenderPass.End();
 
-	CompositionRenderPass.Begin();
-	DrawCompositionPass();
-	CompositionRenderPass.End();
+		/*DepthBuffer.TransitionLayout(vk::ImageLayout::eTransferSrcOptimal,
+									 vk::AccessFlagBits::eTransferRead,
+									 vk::PipelineStageFlagBits::eTransfer);
+
+		SmoothedDepthBuffer.TransitionLayout(vk::ImageLayout::eTransferSrcOptimal,
+									 vk::AccessFlagBits::eTransferRead,
+									 vk::PipelineStageFlagBits::eTransfer);
+
+		PositionsBuffer.TransitionLayout(vk::ImageLayout::eTransferDstOptimal,
+										 vk::AccessFlagBits::eTransferWrite,
+										 vk::PipelineStageFlagBits::eTransfer);
+
+		NormalsBuffer.TransitionLayout(vk::ImageLayout::eTransferDstOptimal,
+									   vk::AccessFlagBits::eTransferWrite,
+									   vk::PipelineStageFlagBits::eTransfer);
+
+		Vulkan.CommandBuffer.end();
+		Vulkan.Submit();
+		Vulkan.WaitForRenderingFinished();
+		
+		SmoothedDepthBuffer.CopyFromGPU();
+
+		float* data = reinterpret_cast<float*>(Vulkan.Device.mapMemory(SmoothedDepthBuffer.CPU.Memory, 0, VK_WHOLE_SIZE));
+
+		DumpDataToFile("OUT", data, SmoothedDepthBuffer.Size);*/
+
+		/*if (RayMarchFinished)
+			DepthBuffer.CopyFromGPU();*/
+	}
+
+	/*if (RayMarchFinished && s_ProcessTimer >= s_ProcessTimerMax)
+	{
+		RayMarchFinished = false;
+
+		ConditionVariable.notify_all();
+	}*/
+
+	{
+		PROFILE_SCOPE("Post-marching");
+
+#if 0
+		if (RayMarchFinished)
+		{
+			PositionsBuffer.CopyToGPU();
+			NormalsBuffer.CopyToGPU();
+		}
+
+		Vulkan.CommandBuffer.reset();
+		vk::CommandBufferBeginInfo beginInfo;
+		Vulkan.CommandBuffer.begin(beginInfo);
+
+		PositionsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
+										 vk::AccessFlagBits::eColorAttachmentRead,
+										 vk::PipelineStageFlagBits::eColorAttachmentOutput);
+
+		NormalsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
+									   vk::AccessFlagBits::eColorAttachmentRead,
+									   vk::PipelineStageFlagBits::eColorAttachmentOutput);
+
+		DepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
+									 vk::AccessFlagBits::eColorAttachmentRead,
+									 vk::PipelineStageFlagBits::eColorAttachmentOutput);
+#endif
+
+		SmoothedDepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
+											 vk::AccessFlagBits::eColorAttachmentRead,
+											 vk::PipelineStageFlagBits::eColorAttachmentOutput);
+
+		TransitionImageLayout(Vulkan.SwapchainImages[Vulkan.CurrentImageIndex],
+							  vk::ImageLayout::eUndefined,
+							  vk::ImageLayout::eColorAttachmentOptimal,
+							  {},
+							  vk::AccessFlagBits::eColorAttachmentWrite,
+							  vk::PipelineStageFlagBits::eTopOfPipe,
+							  vk::PipelineStageFlagBits::eColorAttachmentOutput);
+
+		ShowImageRenderPass.Begin();
+		DrawFullscreenQuad();
+		ShowImageRenderPass.End();
+
+		/*CompositionRenderPass.Begin();
+		DrawFullscreenQuad();
+		CompositionRenderPass.End();*/
+	}
 
 	//   Done in Renderer:
 	// Transition swapchain image layout
@@ -248,14 +335,16 @@ void AdvancedRenderer::RenderUI()
 
 	ImGui::SliderInt("# steps", &s_MaxSteps, 0, 64);
 	ImGui::DragFloat("Step size", &s_StepSize, 0.1f, 0.000001f, 10.0f, "%f", ImGuiSliderFlags_Logarithmic);
-	ImGui::DragFloat("Iso", &s_IsoDensity, 0.1f, 0.001f, 100.0f, "%f", ImGuiSliderFlags_Logarithmic);
+	ImGui::DragFloat("Iso", &s_IsoDensity, 0.1f, 0.001f, 1000.0f, "%f", ImGuiSliderFlags_Logarithmic);
 
-	s_Process = ImGui::Button("Process");
+	//s_ShouldProcess = ImGui::Button("Process");
 
 	float density = ComputeDensity({ 0, 0, 0 });
 	ImGui::InputFloat("D", &density, 0.0f, 0.0f, "%f");
 
 	ImGui::End();
+
+	GaussRenderPass.RenderUI();
 }
 
 // ------------------------------------------------------------------------
@@ -314,23 +403,28 @@ void AdvancedRenderer::DrawDepthPass()
 
 void AdvancedRenderer::RayMarch()
 {
-	PROFILE_FUNCTION();
-
-	const int   MAX_STEPS   = s_MaxSteps;
-	const float STEP_SIZE   = s_StepSize;
-	const float ISO_DENSITY = s_IsoDensity;
-
-	const int width = Vulkan.SwapchainExtent.width;
-	const int height = Vulkan.SwapchainExtent.height;
-	const float widthF = float(width);
-	const float heightF = float(height);
-
-	const float* depth = reinterpret_cast<float*>(DepthBuffer.MapCPUMemory());
-	glm::vec4* positions = reinterpret_cast<glm::vec4*>(PositionsBuffer.MapCPUMemory());
-	glm::vec4* normals = reinterpret_cast<glm::vec4*>(NormalsBuffer.MapCPUMemory());
-
-	if (s_Process)
+	while (!ShouldTerminateThread)
 	{
+		{
+			std::unique_lock lock(Mutex);
+			ConditionVariable.wait(lock);
+		}
+
+		PROFILE_FUNCTION();
+
+		const int   MAX_STEPS   = s_MaxSteps;
+		const float STEP_SIZE   = s_StepSize;
+		const float ISO_DENSITY = s_IsoDensity;
+
+		const int width = Vulkan.SwapchainExtent.width;
+		const int height = Vulkan.SwapchainExtent.height;
+		const float widthF = float(width);
+		const float heightF = float(height);
+
+		const float* depth = reinterpret_cast<float*>(DepthBuffer.MapCPUMemory());
+		glm::vec4* positions = reinterpret_cast<glm::vec4*>(PositionsBuffer.MapCPUMemory());
+		glm::vec4* normals = reinterpret_cast<glm::vec4*>(NormalsBuffer.MapCPUMemory());
+
 		#pragma omp parallel for
 		for (int y = 0; y < height; y++)
 		{
@@ -341,7 +435,6 @@ void AdvancedRenderer::RayMarch()
 				const float z = depth[index];
 
 				positions[index] = glm::vec4(0, 0, 0, 1);
-
 				if (z == 1.0f) continue;
 
 				glm::vec3 clip(2.0f * float(x) / widthF - 1.0f,
@@ -350,10 +443,6 @@ void AdvancedRenderer::RayMarch()
 
 				glm::vec4 worldH = Camera.GetInvProjectionView() * glm::vec4(clip, 1);
 				glm::vec3 world = glm::vec3(worldH) / worldH.w;
-
-				//positions[index] = glm::vec4(world, 1);
-				positions[index] = glm::vec4(z, 0, 0, 1);
-				continue;
 
 				glm::vec3 position = glm::vec3(worldH) / worldH.w;
 				glm::vec3 step = STEP_SIZE * glm::normalize(position - CameraController.Position);
@@ -364,24 +453,27 @@ void AdvancedRenderer::RayMarch()
 					float density = ComputeDensity(position);
 					if (density >= ISO_DENSITY)
 					{
-						positions[index] = glm::vec4(density / ISO_DENSITY);
-						positions[index] = glm::vec4(1);
+						//positions[index] = glm::vec4(density / ISO_DENSITY);
+						positions[index] = glm::vec4(position, 0);
+						
 						//normals[index] = glm::vec4(0);
+
 						i = MAX_STEPS;
 					}
 				}
 			}
 		}
 
-		s_Process = false;
-	}
+		NormalsBuffer.UnmapCPUMemory();
+		PositionsBuffer.UnmapCPUMemory();
+		DepthBuffer.UnmapCPUMemory();
 
-	NormalsBuffer.UnmapCPUMemory();
-	PositionsBuffer.UnmapCPUMemory();
-	DepthBuffer.UnmapCPUMemory();
+		s_ProcessTimer = 0.0f;
+		RayMarchFinished = true;
+	}
 }
 
-void AdvancedRenderer::DrawCompositionPass()
+void AdvancedRenderer::DrawFullscreenQuad()
 {
 	vk::DeviceSize offset = 0;
 	Vulkan.CommandBuffer.bindVertexBuffers(

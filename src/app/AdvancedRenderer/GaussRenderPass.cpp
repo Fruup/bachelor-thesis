@@ -1,31 +1,80 @@
 #include <engine/hzpch.h>
 
-#include "CompositionRenderPass.h"
+#include "GaussRenderPass.h"
 
 #include "AdvancedRenderer.h"
 
 #include <engine/renderer/Renderer.h>
-#include <engine/renderer/objects/Shader.h>
+#include <engine/utils/PerformanceTimer.h>
 
-// --------------------------------------------------------------------
+// --------------------------------------------------------------
 
-//auto& Vulkan = Renderer::GetInstance();
+#define PI 3.1415926535897932384626433832795
+#define E  2.7182818284590452353602874713527
 
-constexpr std::array<float, 4> ClearColor = {
-	0.1f, 0.1f, 0.1f, 1.0f,
-};
-
-constexpr vk::ClearValue ClearValue = vk::ClearColorValue(ClearColor);
-
-// --------------------------------------------------------------------
-// PUBLIC FUNCTIONS
-
-CompositionRenderPass::CompositionRenderPass(AdvancedRenderer& renderer) :
-	Renderer(renderer)
+float gauss(float x)
 {
+	return powf(E, -0.5f*x*x);
 }
 
-void CompositionRenderPass::Init()
+float radius(int i, int j)
+{
+	return sqrtf(float(i) * float(i) + float(j) * float(j));
+}
+
+void ComputeGaussKernel(int N, float* out)
+{
+	PROFILE_FUNCTION();
+
+	float sum = 0.0f;
+
+	for (int i = 0; i <= N; i++)
+	{
+		for (int j = 0; j <= N; j++)
+		{
+			float y = gauss(radius(i, j));
+			out[j + i * (N + 1)] = y;
+
+			if (i == 0 && j == 0)
+				sum += y;
+			else if (i != 0 && j != 0)
+				sum += 4.0f * y;
+			else if (i != 0 || j != 0)
+				sum += 2.0f * y;
+		}
+	}
+
+	for (int i = 0; i <= N; i++)
+		for (int j = 0; j <= N; j++)
+			out[j + i * (N + 1)] /= sum;
+
+#if 0
+	for (int i = 0; i <= N; i++)
+	{
+		for (int j = 0; j <= N; j++)
+		{
+			std::cout << out[j + i * (N + 1)] << ", ";
+		}
+
+		std::cout << std::endl;
+	}
+
+	std::cout << sum << std::endl;
+
+	SPDLOG_INFO("");
+#endif
+}
+
+GaussRenderPass::GaussRenderPass(AdvancedRenderer& renderer) :
+	Renderer(renderer)
+{
+	/*std::vector<float> out;
+	ComputeGaussKernel(1, out);*/
+}
+
+// --------------------------------------------------------------
+
+void GaussRenderPass::Init()
 {
 	CreateShaders();
 
@@ -36,51 +85,52 @@ void CompositionRenderPass::Init()
 	CreatePipeline();
 
 	CreateUniformBuffer();
-	UpdateUniformsFullscreen();
 
-	UpdateDescriptorSets();
+	UpdateDescriptorSet();
+
+	ComputeGaussKernel(Uniforms.GaussN, Uniforms.Kernel);
 }
 
-void CompositionRenderPass::Exit()
+void GaussRenderPass::Exit()
 {
-	Vulkan.Device.destroyDescriptorSetLayout(DescriptorSetLayout);
+	UniformBuffer.Destroy();
 
-	Vulkan.Device.destroyPipelineLayout(PipelineLayout);
 	Vulkan.Device.destroyPipeline(Pipeline);
+	Vulkan.Device.destroyPipelineLayout(PipelineLayout);
+	
+	Vulkan.Device.destroyDescriptorSetLayout(DescriptorSetLayout);
 
 	VertexShader.Destroy();
 	FragmentShader.Destroy();
 
 	UniformBufferFullscreen.Destroy();
-	UniformBuffer.Destroy();
 }
 
-void CompositionRenderPass::Begin()
+void GaussRenderPass::Begin()
 {
-	// update uniforms
-	UpdateUniforms();
+	vk::ClearDepthStencilValue clearValue(0.5f);
 
-	// begin rendering
-	vk::RenderingAttachmentInfo screenAttachment;
-	screenAttachment
-		.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
-		.setImageView(Vulkan.SwapchainImageViews[Vulkan.CurrentImageIndex])
-		.setClearValue(ClearValue)
-		.setLoadOp(vk::AttachmentLoadOp::eClear)
-		.setStoreOp(vk::AttachmentStoreOp::eStore);
-
-	std::array<vk::RenderingAttachmentInfo, 1> attachments = {
-		screenAttachment,
-	};
+	vk::RenderingAttachmentInfo smoothedDepthAttachment;
+	smoothedDepthAttachment
+		.setClearValue(clearValue)
+		.setLoadOp(vk::AttachmentLoadOp::eDontCare)
+		.setStoreOp(vk::AttachmentStoreOp::eStore)
+		.setImageView(Renderer.SmoothedDepthBuffer.GPU.ImageView)
+		.setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal);
 
 	vk::RenderingInfo renderingInfo;
 	renderingInfo
-		.setColorAttachments(attachments)
+		.setPDepthAttachment(&smoothedDepthAttachment)
 		.setLayerCount(1)
 		.setRenderArea(vk::Rect2D({ 0, 0 }, Vulkan.SwapchainExtent ))
 		.setViewMask(0);
 
 	Vulkan.CommandBuffer.beginRendering(renderingInfo);
+
+	// update descriptor set
+	UpdateDescriptorSet();
+
+	UpdateUniforms();
 
 	// bind pipeline and descriptor set
 	Vulkan.CommandBuffer.bindPipeline(
@@ -97,26 +147,55 @@ void CompositionRenderPass::Begin()
 	);
 }
 
-void CompositionRenderPass::End()
+void GaussRenderPass::End()
 {
 	Vulkan.CommandBuffer.endRendering();
 }
 
-// --------------------------------------------------------------------
+void GaussRenderPass::RenderUI()
+{
+	ImGui::Begin("GaussRenderPass");
+
+	if (ImGui::SliderInt("Gauss N", &Uniforms.GaussN, 1, 63))
+	{
+		ComputeGaussKernel(Uniforms.GaussN, Uniforms.Kernel);
+	}
+
+	ImGui::End();
+}
+
+// --------------------------------------------------------------
 // PRIVATE HELPER FUNCTIONS
 
-void CompositionRenderPass::CreateShaders()
+void GaussRenderPass::CreateUniformBuffer()
+{
+	UniformBuffer.Create(
+		sizeof(Uniforms),
+		vk::BufferUsageFlagBits::eUniformBuffer,
+		vk::MemoryPropertyFlagBits::eHostVisible |
+		vk::MemoryPropertyFlagBits::eHostCoherent
+	);
+
+	UniformBufferFullscreen.Create(
+		sizeof(UniformsFullscreen),
+		vk::BufferUsageFlagBits::eUniformBuffer,
+		vk::MemoryPropertyFlagBits::eHostVisible |
+		vk::MemoryPropertyFlagBits::eHostCoherent
+	);
+}
+
+void GaussRenderPass::CreateShaders()
 {
 	VertexShader.Create(
 		"shaders/fullscreen.vert",
 		vk::ShaderStageFlagBits::eVertex);
 
 	FragmentShader.Create(
-		"shaders/advanced/composition.frag",
+		"shaders/advanced/gauss.frag",
 		vk::ShaderStageFlagBits::eFragment);
 }
 
-void CompositionRenderPass::CreatePipelineLayout()
+void GaussRenderPass::CreatePipelineLayout()
 {
 	vk::PipelineLayoutCreateInfo info;
 	info.setSetLayoutCount(1)
@@ -125,7 +204,7 @@ void CompositionRenderPass::CreatePipelineLayout()
 	PipelineLayout = Vulkan.Device.createPipelineLayout(info);
 }
 
-void CompositionRenderPass::CreatePipeline()
+void GaussRenderPass::CreatePipeline()
 {
 	// shader stages
 	std::array<vk::PipelineShaderStageCreateInfo, 2> stages = {
@@ -154,7 +233,7 @@ void CompositionRenderPass::CreatePipeline()
 		1.0f  // max depth
 	);
 
-	vk::Rect2D scissor({ 0, 0 }, Renderer::GetInstance().SwapchainExtent);
+	vk::Rect2D scissor({ 0, 0 }, Vulkan.SwapchainExtent);
 
 	vk::PipelineViewportStateCreateInfo viewportState;
 	viewportState
@@ -179,36 +258,28 @@ void CompositionRenderPass::CreatePipeline()
 		.setRasterizationSamples(vk::SampleCountFlagBits::e1);
 
 	// blending
-	std::array<vk::PipelineColorBlendAttachmentState, 3> blendAttachments = {
-		vk::PipelineColorBlendAttachmentState(false),
-		vk::PipelineColorBlendAttachmentState(false),
-		vk::PipelineColorBlendAttachmentState(false),
-	};
+	vk::PipelineColorBlendAttachmentState blendAttachment;
+	blendAttachment.setBlendEnable(false);
 
 	vk::PipelineColorBlendStateCreateInfo blendState;
 	blendState
 		.setLogicOpEnable(false)
-		/*.setAttachments(blendAttachments)*/;
+		.setAttachments(blendAttachment);
 
 	// depth state
 	vk::PipelineDepthStencilStateCreateInfo depthStencilState;
 	depthStencilState
 		.setDepthTestEnable(false)
-		.setDepthWriteEnable(false)
+		.setDepthWriteEnable(true)
+		.setDepthCompareOp(vk::CompareOp::eLessOrEqual)
 		.setDepthBoundsTestEnable(false)
 		.setStencilTestEnable(false);
 
 	// rendering info
-	std::array<vk::Format, 3> colorAttachmentFormats = {
-		vk::Format::eB8G8R8A8Srgb,
-		vk::Format::eR32G32B32A32Sfloat,
-		vk::Format::eR32G32B32A32Sfloat,
-	};
-
 	vk::PipelineRenderingCreateInfo renderingPipelineCreateInfo;
 	renderingPipelineCreateInfo
-		//.setColorAttachmentFormats(colorAttachmentFormats)
-		.setViewMask(0);
+		.setViewMask(0)
+		.setDepthAttachmentFormat(Renderer.SmoothedDepthBuffer.Format);
 
 	// pipeline
 	vk::GraphicsPipelineCreateInfo pipelineCreateInfo;
@@ -230,40 +301,40 @@ void CompositionRenderPass::CreatePipeline()
 	Pipeline = r.value;
 }
 
-void CompositionRenderPass::CreateDescriptorSetLayout()
+void GaussRenderPass::CreateDescriptorSetLayout()
 {
-	vk::DescriptorSetLayoutBinding uniformBuffer;
-	uniformBuffer
+	vk::DescriptorSetLayoutBinding uniformBinding;
+	uniformBinding
 		.setBinding(0)
 		.setDescriptorCount(1)
 		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
 		.setStageFlags(vk::ShaderStageFlagBits::eFragment);
 
-	vk::DescriptorSetLayoutBinding uniformBufferFullscreen;
-	uniformBufferFullscreen
+	vk::DescriptorSetLayoutBinding resolutionUniformBinding;
+	resolutionUniformBinding
 		.setBinding(2)
 		.setDescriptorCount(1)
 		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
-		.setStageFlags(vk::ShaderStageFlagBits::eVertex);
+		.setStageFlags(vk::ShaderStageFlagBits::eFragment | vk::ShaderStageFlagBits::eVertex);
 
-	vk::DescriptorSetLayoutBinding positionsAttachment;
-	positionsAttachment
+	vk::DescriptorSetLayoutBinding depthSamplerBinding;
+	depthSamplerBinding
 		.setBinding(1)
 		.setDescriptorCount(1)
 		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
 		.setStageFlags(vk::ShaderStageFlagBits::eFragment);
 
 	std::array<vk::DescriptorSetLayoutBinding, 3> bindings = {
-		uniformBuffer,
-		uniformBufferFullscreen,
-		positionsAttachment,
+		uniformBinding,
+		resolutionUniformBinding,
+		depthSamplerBinding,
 	};
 
 	vk::DescriptorSetLayoutCreateInfo info({}, bindings);
 	DescriptorSetLayout = Vulkan.Device.createDescriptorSetLayout(info);
 }
 
-void CompositionRenderPass::CreateDescriptorSet()
+void GaussRenderPass::CreateDescriptorSet()
 {
 	vk::DescriptorSetAllocateInfo info;
 	info.setDescriptorPool(Vulkan.DescriptorPool)
@@ -275,38 +346,12 @@ void CompositionRenderPass::CreateDescriptorSet()
 	DescriptorSet = r.front();
 }
 
-void CompositionRenderPass::CreateUniformBuffer()
+void GaussRenderPass::UpdateUniforms()
 {
-	UniformBuffer.Create(
-		sizeof(Uniforms),
-		vk::BufferUsageFlagBits::eUniformBuffer,
-		vk::MemoryPropertyFlagBits::eHostVisible |
-		vk::MemoryPropertyFlagBits::eHostCoherent
-	);
-
-	UniformBufferFullscreen.Create(
-		sizeof(UniformsFullscreen),
-		vk::BufferUsageFlagBits::eUniformBuffer,
-		vk::MemoryPropertyFlagBits::eHostVisible |
-		vk::MemoryPropertyFlagBits::eHostCoherent
-	);
-}
-
-void CompositionRenderPass::UpdateUniforms()
-{
-	Uniforms.InvProjection = Renderer.Camera.GetInvProjection();
-
-	Uniforms.CameraPosition = Renderer.CameraController.Position;
-	Uniforms.CameraDirection = Renderer.CameraController.System[2];
-
-	Uniforms.LightDirection = glm::vec3(0, -1, -1);
-
 	// copy
 	UniformBuffer.Map(&Uniforms, sizeof(Uniforms));
-}
 
-void CompositionRenderPass::UpdateUniformsFullscreen()
-{
+	// fullscreen uniforms
 	UniformsFullscreen.TexelWidth = float(1.0f) / float(Vulkan.SwapchainExtent.width);
 	UniformsFullscreen.TexelHeight = float(1.0f) / float(Vulkan.SwapchainExtent.height);
 
@@ -314,14 +359,14 @@ void CompositionRenderPass::UpdateUniformsFullscreen()
 	UniformBufferFullscreen.Map(&UniformsFullscreen, sizeof(UniformsFullscreen));
 }
 
-void CompositionRenderPass::UpdateDescriptorSets()
+void GaussRenderPass::UpdateDescriptorSet()
 {
-	// uniforms
+	// uniforms 1 (all up to kernel array)
 	vk::DescriptorBufferInfo bufferInfo;
 	bufferInfo
 		.setBuffer(UniformBuffer)
 		.setOffset(0)
-		.setRange(VK_WHOLE_SIZE);
+		.setRange(sizeof(int) + sizeof(float) * (Uniforms.GaussN + 1) * (Uniforms.GaussN + 1));
 
 	vk::WriteDescriptorSet writeUniform;
 	writeUniform
@@ -330,6 +375,22 @@ void CompositionRenderPass::UpdateDescriptorSets()
 		.setDescriptorType(vk::DescriptorType::eUniformBuffer)
 		.setDstArrayElement(0)
 		.setDstBinding(0)
+		.setDstSet(DescriptorSet);
+
+	// depth
+	vk::DescriptorImageInfo depthImageInfo;
+	depthImageInfo
+		.setImageView(Renderer.DepthBuffer.GPU.ImageView)
+		.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+		.setSampler(Renderer.DepthBuffer.GPU.Sampler);
+
+	vk::WriteDescriptorSet writeDepthSampler;
+	writeDepthSampler
+		.setImageInfo(depthImageInfo)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+		.setDstArrayElement(0)
+		.setDstBinding(1)
 		.setDstSet(DescriptorSet);
 
 	// uniforms fullscreen
@@ -348,30 +409,12 @@ void CompositionRenderPass::UpdateDescriptorSets()
 		.setDstBinding(2)
 		.setDstSet(DescriptorSet);
 
-	// positions
-	vk::DescriptorImageInfo positionsImageInfo;
-	positionsImageInfo
-		.setImageView(Renderer.PositionsBuffer.GPU.ImageView)
-		.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-		.setSampler(Renderer.PositionsBuffer.GPU.Sampler);
 
-	vk::WriteDescriptorSet writePositions;
-	writePositions
-		.setImageInfo(positionsImageInfo)
-		.setDescriptorCount(1)
-		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-		.setDstArrayElement(0)
-		.setDstBinding(1)
-		.setDstSet(DescriptorSet);
-
-	// write
 	std::array<vk::WriteDescriptorSet, 3> writes = {
 		writeUniform,
+		writeDepthSampler,
 		writeUniformFullscreen,
-		writePositions,
 	};
 
 	Vulkan.Device.updateDescriptorSets(writes, {});
 }
-
-// --------------------------------------------------------------------
