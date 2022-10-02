@@ -11,7 +11,7 @@
 
 CameraController3D::CameraController3D(Camera3D& camera) :
 	Camera(camera),
-	Position(glm::vec3()),
+	Position(glm::vec3(0, 0, -5)),
 	Orientation(glm::quatLookAtLH(glm::vec3(0, 0, 1), glm::vec3(0, 1, 0)))
 {
 	ComputeMatrices();
@@ -40,7 +40,7 @@ void CameraController3D::HandleEvent(Event& e)
 	});
 
 	d.Dispatch<Events::MouseWheel>([&](const Events::MouseWheel& e) {
-		Position += 0.2f * e.Wheel * System[2];
+		R -= 0.2f * e.Wheel;
 	});
 
 	d.Dispatch<Events::MouseMove>([&](const Events::MouseMove& e) {
@@ -48,6 +48,10 @@ void CameraController3D::HandleEvent(Event& e)
 		{
 			// ... wild quaternion stuff
 			// pan around the point Camera.Position + <distance> * System[2];
+
+			const float v = 0.001;
+			RotationX += v * e.Delta.x;
+			RotationY += v * e.Delta.y;
 		}
 		else if (Dragging)
 		{
@@ -56,33 +60,25 @@ void CameraController3D::HandleEvent(Event& e)
 			// onto the camera plane
 			float v = 0.01f;
 
-			Position -= v * e.Delta.x * System[0] - v * e.Delta.y * System[1];
+			//Position -= v * e.Delta.x * System[0] + v * e.Delta.y * System[1];
 		}
 	});
 
 	ComputeMatrices();
 }
 
-void CameraController3D::SetPosition(const glm::vec3& position)
-{
-	Position = position;
-
-	ComputeMatrices();
-}
-
-void CameraController3D::SetOrientation(const glm::quat& orientation)
-{
-	Orientation = orientation;
-
-	ComputeMatrices();
-}
-
 void CameraController3D::ComputeMatrices()
 {
-	glm::mat4 orientation = glm::toMat4(Orientation);
+	constexpr float pi = glm::pi<float>();
+	RotationY = std::clamp(RotationY, -0.49f * pi, +0.49f * pi);
 
-	System = orientation;
-	Camera.View = glm::translate(glm::scale(orientation, glm::vec3(1, -1, 1)), -Position);
+	Position = glm::rotate(glm::quat({ RotationY, RotationX, 0 }), { 0, 0, -R });
+	Orientation = glm::quatLookAt(-glm::normalize(Position), { 0, 1, 0 });
+	glm::mat4 orientation = glm::toMat4(glm::inverse(Orientation));
+
+	Camera.View = glm::translate(orientation, -Position);
+	System = glm::transpose(Camera.View);
+	//System = Camera.View;
 
 	Camera.ComputeMatrices();
 }

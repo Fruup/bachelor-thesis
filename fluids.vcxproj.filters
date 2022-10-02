@@ -161,6 +161,10 @@
     </ClInclude>
     <ClInclude Include="src\app\AdvancedRenderer\GaussRenderPass.h" />
     <ClInclude Include="src\app\AdvancedRenderer\ShowImageRenderPass.h" />
+    <ClInclude Include="src\app\AdvancedRenderer\CoordinateSystemRenderPass.h" />
+    <ClInclude Include="src\app\DiskRenderer\DiskRenderer.h" />
+    <ClInclude Include="src\app\DiskRenderer\DiskRenderPass.h" />
+    <ClInclude Include="src\app\Utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\app\AdvancedRenderer\AdvancedRenderer.cpp">
@@ -267,5 +271,9 @@
     </ClCompile>
     <ClCompile Include="src\app\AdvancedRenderer\GaussRenderPass.cpp" />
     <ClCompile Include="src\app\AdvancedRenderer\ShowImageRenderPass.cpp" />
+    <ClCompile Include="src\app\AdvancedRenderer\CoordinateSystemRenderPass.cpp" />
+    <ClCompile Include="src\app\DiskRenderer\DiskRenderer.cpp" />
+    <ClCompile Include="src\app\DiskRenderer\DiskRenderPass.cpp" />
+    <ClCompile Include="src\app\Utils.cpp" />
   </ItemGroup>
 </Project>

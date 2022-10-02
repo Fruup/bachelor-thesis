@@ -179,16 +179,24 @@ void CompositionRenderPass::CreatePipeline()
 		.setRasterizationSamples(vk::SampleCountFlagBits::e1);
 
 	// blending
-	std::array<vk::PipelineColorBlendAttachmentState, 3> blendAttachments = {
-		vk::PipelineColorBlendAttachmentState(false),
-		vk::PipelineColorBlendAttachmentState(false),
-		vk::PipelineColorBlendAttachmentState(false),
-	};
+	vk::PipelineColorBlendAttachmentState blendAttachment;
+	blendAttachment
+		.setBlendEnable(true)
+		.setColorBlendOp(vk::BlendOp::eAdd)
+		.setAlphaBlendOp(vk::BlendOp::eAdd)
+		.setSrcAlphaBlendFactor(vk::BlendFactor::eOne)
+		.setDstAlphaBlendFactor(vk::BlendFactor::eZero)
+		.setSrcColorBlendFactor(vk::BlendFactor::eSrcAlpha)
+		.setDstColorBlendFactor(vk::BlendFactor::eOneMinusSrcAlpha)
+		.setColorWriteMask(vk::ColorComponentFlagBits::eR |
+						   vk::ColorComponentFlagBits::eG |
+						   vk::ColorComponentFlagBits::eB |
+						   vk::ColorComponentFlagBits::eA);
 
 	vk::PipelineColorBlendStateCreateInfo blendState;
 	blendState
 		.setLogicOpEnable(false)
-		/*.setAttachments(blendAttachments)*/;
+		.setAttachments(blendAttachment);
 
 	// depth state
 	vk::PipelineDepthStencilStateCreateInfo depthStencilState;
@@ -199,15 +207,9 @@ void CompositionRenderPass::CreatePipeline()
 		.setStencilTestEnable(false);
 
 	// rendering info
-	std::array<vk::Format, 3> colorAttachmentFormats = {
-		vk::Format::eB8G8R8A8Srgb,
-		vk::Format::eR32G32B32A32Sfloat,
-		vk::Format::eR32G32B32A32Sfloat,
-	};
-
 	vk::PipelineRenderingCreateInfo renderingPipelineCreateInfo;
 	renderingPipelineCreateInfo
-		//.setColorAttachmentFormats(colorAttachmentFormats)
+		.setColorAttachmentFormats(Vulkan.SwapchainFormat)
 		.setViewMask(0);
 
 	// pipeline

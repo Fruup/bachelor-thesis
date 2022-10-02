@@ -52,7 +52,7 @@ Dataset::~Dataset()
 std::vector<uint32_t> Dataset::GetNeighbors(const glm::vec3& position, uint32_t index)
 {
 	std::vector<std::vector<uint32_t>> neighbors;
-	NSearch[index].find_neighbors(position.data.data, neighbors);
+	NSearch[index].find_neighbors((float*)&position, neighbors);
 
 	return neighbors[0];
 }
@@ -79,7 +79,7 @@ void Dataset::ReadFile(Partio::ParticlesDataMutable* file)
 void Dataset::BuildCompactNSearch()
 {
 	CompactNSearch::NeighborhoodSearch search(ParticleRadius);
-	const auto ps = search.add_point_set(Snapshots.back().front().data(), Snapshots.back().size(), false, true);
+	const auto ps = search.add_point_set((float*)Snapshots.back().data(), Snapshots.back().size(), false, true);
 	
 	// sort for quick access
 

@@ -29,15 +29,14 @@ bool Renderer::CreateSwapChainImageViews()
 
 bool Renderer::CreateDescriptorPool()
 {
-	std::array<vk::DescriptorPoolSize, 3> poolSize{
-		vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 8 },
-		vk::DescriptorPoolSize{ vk::DescriptorType::eInputAttachment, 8 },
+	std::array<vk::DescriptorPoolSize, 2> poolSize{
+		vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 16 },
 		vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 32 },
 	};
 
 	vk::DescriptorPoolCreateInfo info;
 	info.setPoolSizes(poolSize)
-		.setMaxSets(4);
+		.setMaxSets(8);
 
 	DescriptorPool = Device.createDescriptorPool(info);
 	if (!DescriptorPool)

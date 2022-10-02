@@ -2,15 +2,14 @@
 
 #include <engine/renderer/objects/Shader.h>
 #include <engine/renderer/objects/Buffer.h>
+#include <engine/renderer/objects/VertexBuffer.h>
 
 class AdvancedRenderer;
 
-class GaussRenderPass
+class CoordinateSystemRenderPass
 {
-	friend AdvancedRenderer;
-
 public:
-	GaussRenderPass(AdvancedRenderer& renderer);
+	CoordinateSystemRenderPass(AdvancedRenderer& renderer);
 
 	void Init();
 	void Exit();
@@ -18,11 +17,10 @@ public:
 	void Begin();
 	void End();
 
-	void RenderUI();
-
 private:
-	void CreateUniformBuffer();
 	void CreateShaders();
+
+	void CreateVertexBuffer();
 
 	void CreatePipelineLayout();
 	void CreatePipeline();
@@ -30,21 +28,13 @@ private:
 	void CreateDescriptorSetLayout();
 	void CreateDescriptorSet();
 
-	void UpdateDescriptorSet();
+	void CreateUniformBuffer();
+
 	void UpdateUniforms();
 
-private:
-	constexpr static int MaxKernelSize = 32;
+	void UpdateDescriptorSets();
 
-	struct
-	{
-		int GaussN = 8;
-		float _unused[3];
-		float Kernel[MaxKernelSize * MaxKernelSize];
-	} Uniforms;
-
-	Buffer UniformBuffer;
-
+public:
 	vk::Pipeline Pipeline;
 	vk::PipelineLayout PipelineLayout;
 
@@ -53,15 +43,15 @@ private:
 
 	Shader VertexShader, FragmentShader;
 
+	VertexBuffer VertexBuffer;
+
 	AdvancedRenderer& Renderer;
 
 	struct
 	{
-		float TexelWidth;
-		float TexelHeight;
-	} UniformsFullscreen;
+		glm::mat4 ProjectionView;
+		float Aspect;
+	} Uniforms;
 
-	Buffer UniformBufferFullscreen;
-
-	float Spread = 1.0f;
+	Buffer UniformBuffer;
 };

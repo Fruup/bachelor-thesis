@@ -8,7 +8,7 @@ Camera3D::Camera3D(float fov, float aspect, float near, float far) :
 	Far(far),
 	Aspect(aspect)
 {
-	Projection = glm::perspectiveLH(fov, aspect, near, far);
+	Projection = glm::scale(glm::perspective(fov, aspect, near, far), { 1, -1, 1 });
 	InvProjection = glm::inverse(Projection);
 }
 

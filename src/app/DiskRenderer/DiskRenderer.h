@@ -5,16 +5,13 @@
 #include <engine/camera/CameraController3D.h>
 
 #include "app/Dataset.h"
-#include "BilateralBuffer.h"
-#include "DepthRenderPass.h"
-#include "CompositionRenderPass.h"
-#include "GaussRenderPass.h"
-#include "ShowImageRenderPass.h"
-#include "CoordinateSystemRenderPass.h"
+#include "DiskRenderPass.h"
+#include "../AdvancedRenderer/CoordinateSystemRenderPass.h"
+#include "../AdvancedRenderer/BilateralBuffer.h"
 
 class Event;
 
-class AdvancedRenderer
+class DiskRenderer
 {
 public:
 	struct Vertex
@@ -27,7 +24,7 @@ public:
 	};
 
 public:
-	AdvancedRenderer();
+	DiskRenderer();
 
 	void Init(Dataset* dataset);
 	void Exit();
@@ -37,26 +34,19 @@ public:
 
 	void Render();
 	void RenderUI();
-	
+
 private:
 	void CollectRenderData();
 
-	void DrawDepthPass();
-	void RayMarch();
-	void DrawFullscreenQuad();
+	void DrawParticles();
 
 	float ComputeDensity(const glm::vec3& x);
 
 public:
-	DepthRenderPass DepthRenderPass;
-	GaussRenderPass GaussRenderPass;
-	CompositionRenderPass CompositionRenderPass;
-	ShowImageRenderPass ShowImageRenderPass;
-	CoordinateSystemRenderPass CoordinateSystemRenderPass;
+	DiskRenderPass DiskRenderPass;
+	//CoordinateSystemRenderPass CoordinateSystemRenderPass;
 
-	BilateralBuffer DepthBuffer, SmoothedDepthBuffer;
-	BilateralBuffer PositionsBuffer;
-	BilateralBuffer NormalsBuffer;
+	BilateralBuffer DepthBuffer;
 
 	VertexBuffer VertexBuffer;
 

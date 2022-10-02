@@ -300,9 +300,9 @@ void ShowImageRenderPass::UpdateDescriptorSets()
 	// smoothed depth
 	vk::DescriptorImageInfo depthImageInfo;
 	depthImageInfo
-		.setImageView(Renderer.SmoothedDepthBuffer.GPU.ImageView)
+		.setImageView(ImageView)
 		.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-		.setSampler(Renderer.SmoothedDepthBuffer.GPU.Sampler);
+		.setSampler(Sampler);
 
 	vk::WriteDescriptorSet writeDepthImage;
 	writeDepthImage

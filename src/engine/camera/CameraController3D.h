@@ -12,9 +12,6 @@ public:
 	void Update(float time);
 	void HandleEvent(Event& e);
 
-	void SetPosition(const glm::vec3& position);
-	void SetOrientation(const glm::quat& orientation);
-
 	void ComputeMatrices();
 
 	Camera3D& Camera;
@@ -24,6 +21,8 @@ public:
 
 	glm::vec3 Position;
 	glm::quat Orientation;
+	float RotationX = 0.0f, RotationY = 0.0f;
+	float R = 10.0f;
 
 	glm::mat3 System;
 };

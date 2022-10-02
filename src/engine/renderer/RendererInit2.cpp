@@ -59,6 +59,7 @@ vk::PresentModeKHR ChooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& 
 		if (mode == vk::PresentModeKHR::eMailbox)
 			return mode;*/
 	return vk::PresentModeKHR::eFifo; // v-sync
+	// return vk::PresentModeKHR::eImmediate;
 }
 
 vk::Extent2D ChooseSwapExtent(const vk::SurfaceCapabilitiesKHR& caps, vk::Extent2D desiredExtent)

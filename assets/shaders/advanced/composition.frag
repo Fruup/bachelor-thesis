@@ -1,6 +1,6 @@
 #version 460
 
-const vec4 DiffuseColor = vec4(52, 125, 235, 255) / 255;
+const vec4 DiffuseColor = vec4(52, 125, 235, 150) / 255;
 const vec4 SpecularColor = vec4(1, 1, 1, 1);
 const vec4 AmbientColor = vec4(vec3(0.1), 1);
 const float SpecularExponent = 10;
@@ -47,50 +47,46 @@ vec3 smoothedPosition(vec2 uv)
 
 void main()
 {
-	if (texture(SmoothedDepth, UV).r > 0.999)
-	{
-		discard;
-	}
-
-	// if (position.xyz == vec3(0))
-	// {
-	// 	Color = vec4(1, 1, 0, 1);
-	// 	return;
-	// }
+	// if (texture(SmoothedDepth, UV).r > 0.99)
+	// 	discard;
 
 	const vec3 world = position(UV);
 
-	const vec2 left = ml;
-	const vec2 right = mr;
-	const vec2 top = tm;
-	const vec2 bottom = bm;
+	if (world == vec3(0))
+		discard;
 
-	vec3 pcenter = smoothedPosition(UV);
-	// vec3 dx = smoothedPosition(right) - pcenter;
-	// vec3 dy = smoothedPosition(top) - pcenter;
-	vec3 dx = smoothedPosition(right) - smoothedPosition(left);
-	vec3 dy = smoothedPosition(top) - smoothedPosition(bottom);
+	vec3 dx =
+		+1 * smoothedPosition(tr)
+		+2 * smoothedPosition(mr)
+		+1 * smoothedPosition(br)
+		-1 * smoothedPosition(tl)
+		-2 * smoothedPosition(ml)
+		-1 * smoothedPosition(bl);
+	vec3 dy =
+		+1 * smoothedPosition(bl)
+		+2 * smoothedPosition(bm)
+		+1 * smoothedPosition(br)
+		-1 * smoothedPosition(tl)
+		-2 * smoothedPosition(tm)
+		-1 * smoothedPosition(tr);
 
 	const vec3 normal = normalize(cross(dx, dy));
 
-	Color = vec4(normal, 1);
-	return;
+	// Color = vec4(normal, 1);
+	// return;
 
-	const float diffuse = dot(normal, Uniforms.LightDirection);
+	// const vec3 light = Uniforms.LightDirection;
+	// const vec3 light = Uniforms.CameraDirection;
+	const vec3 light = vec3(0, 0, 1);
 
-	const float specular = pow(max(dot(-Uniforms.LightDirection, normalize(reflect(normal, Uniforms.CameraPosition - world))), 0), SpecularExponent);
+	const float diffuse = abs(dot(normal, -light));
 
-	// Color = vec4(-vec3(world.z - 3) / 5, 1);
+	const float specular = pow(max(dot(-light, normalize(reflect(normal, Uniforms.CameraPosition - world))), 0), SpecularExponent);
 
 	Color =
-		DiffuseColor * diffuse +
-		SpecularColor * specular +
-		AmbientColor;
-
-	// Color = vec4(texture(Positions, UV).xyz, 1);
-	// Color = vec4(Positions.xyz, 1);
-	// Color = vec4(UV, 0, 1);
-	// Color = vec4(1, 0, 0, 1);
+		+ DiffuseColor * diffuse
+		+ SpecularColor * specular;
+		//+ AmbientColor;
 }
 
 #if 0

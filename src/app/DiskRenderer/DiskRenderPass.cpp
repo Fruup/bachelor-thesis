@@ -1,7 +1,7 @@
 #include "engine/hzpch.h"
 
-#include "DepthRenderPass.h"
-#include "AdvancedRenderer.h"
+#include "DiskRenderPass.h"
+#include "DiskRenderer.h"
 
 #include <engine/renderer/Renderer.h>
 #include <engine/renderer/objects/Shader.h>
@@ -9,12 +9,12 @@
 // --------------------------------------------------------------------
 // PUBLIC FUNCTIONS
 
-DepthRenderPass::DepthRenderPass(AdvancedRenderer& renderer) :
+DiskRenderPass::DiskRenderPass(DiskRenderer& renderer) :
 	Renderer(renderer)
 {
 }
 
-void DepthRenderPass::Init()
+void DiskRenderPass::Init()
 {
 	CreateShaders();
 
@@ -29,36 +29,47 @@ void DepthRenderPass::Init()
 	UpdateDescriptorSets();
 }
 
-void DepthRenderPass::Exit()
+void DiskRenderPass::Exit()
 {
 	Vulkan.Device.destroyDescriptorSetLayout(DescriptorSetLayout);
 
 	Vulkan.Device.destroyPipelineLayout(PipelineLayout);
 	Vulkan.Device.destroyPipeline(Pipeline);
-	
+
 	VertexShader.Destroy();
 	FragmentShader.Destroy();
 
 	UniformBuffer.Destroy();
 }
 
-void DepthRenderPass::Begin()
+void DiskRenderPass::Begin()
 {
+	std::array<float, 4> clearValue = { 0.1f, 0.1f, 0.1f, 1.0f };
+
 	// update uniforms
 	UpdateUniforms();
 	UpdateDescriptorSets();
 
 	// begin rendering
+	vk::RenderingAttachmentInfo screenAttachment;
+	screenAttachment
+		.setClearValue(vk::ClearColorValue(clearValue))
+		.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal)
+		.setImageView(Vulkan.SwapchainImageViews[Vulkan.CurrentImageIndex])
+		.setLoadOp(vk::AttachmentLoadOp::eClear)
+		.setStoreOp(vk::AttachmentStoreOp::eStore);
+
 	vk::RenderingAttachmentInfo depthAttachment;
 	depthAttachment
 		.setClearValue(vk::ClearDepthStencilValue(1.0f))
 		.setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
 		.setImageView(Renderer.DepthBuffer.GPU.ImageView)
 		.setLoadOp(vk::AttachmentLoadOp::eClear)
-		.setStoreOp(vk::AttachmentStoreOp::eStore);
+		.setStoreOp(vk::AttachmentStoreOp::eDontCare);
 
 	vk::RenderingInfo renderingInfo;
 	renderingInfo
+		.setColorAttachments(screenAttachment)
 		.setPDepthAttachment(&depthAttachment)
 		.setLayerCount(1)
 		.setRenderArea(vk::Rect2D({ 0, 0 }, Vulkan.SwapchainExtent ))
@@ -81,7 +92,7 @@ void DepthRenderPass::Begin()
 	);
 }
 
-void DepthRenderPass::End()
+void DiskRenderPass::End()
 {
 	Vulkan.CommandBuffer.endRendering();
 }
@@ -89,18 +100,18 @@ void DepthRenderPass::End()
 // --------------------------------------------------------------------
 // PRIVATE HELPER FUNCTIONS
 
-void DepthRenderPass::CreateShaders()
+void DiskRenderPass::CreateShaders()
 {
 	VertexShader.Create(
-		"shaders/advanced/depth.vert",
+		"shaders/disk/disk.vert",
 		vk::ShaderStageFlagBits::eVertex);
 
 	FragmentShader.Create(
-		"shaders/advanced/depth.frag",
+		"shaders/disk/disk.frag",
 		vk::ShaderStageFlagBits::eFragment);
 }
 
-void DepthRenderPass::CreatePipelineLayout()
+void DiskRenderPass::CreatePipelineLayout()
 {
 	vk::PipelineLayoutCreateInfo info;
 	info.setSetLayoutCount(1)
@@ -109,7 +120,7 @@ void DepthRenderPass::CreatePipelineLayout()
 	PipelineLayout = Vulkan.Device.createPipelineLayout(info);
 }
 
-void DepthRenderPass::CreatePipeline()
+void DiskRenderPass::CreatePipeline()
 {
 	// shader stages
 	std::array<vk::PipelineShaderStageCreateInfo, 2> stages = {
@@ -120,8 +131,8 @@ void DepthRenderPass::CreatePipeline()
 	// vertex input
 	vk::PipelineVertexInputStateCreateInfo vertexInputState;
 	vertexInputState
-		.setVertexAttributeDescriptions(AdvancedRenderer::Vertex::Attributes)
-		.setVertexBindingDescriptions(AdvancedRenderer::Vertex::Binding);
+		.setVertexAttributeDescriptions(DiskRenderer::Vertex::Attributes)
+		.setVertexBindingDescriptions(DiskRenderer::Vertex::Binding);
 
 	// input assembly
 	vk::PipelineInputAssemblyStateCreateInfo inputAssemblyState;
@@ -164,7 +175,11 @@ void DepthRenderPass::CreatePipeline()
 
 	// blending
 	vk::PipelineColorBlendAttachmentState blendAttachment;
-	blendAttachment.setBlendEnable(false);
+	blendAttachment
+		.setBlendEnable(false)
+		.setColorWriteMask(vk::ColorComponentFlagBits::eR |
+						   vk::ColorComponentFlagBits::eG |
+						   vk::ColorComponentFlagBits::eB);
 
 	vk::PipelineColorBlendStateCreateInfo blendState;
 	blendState
@@ -183,7 +198,8 @@ void DepthRenderPass::CreatePipeline()
 	// rendering info
 	vk::PipelineRenderingCreateInfo renderingPipelineCreateInfo;
 	renderingPipelineCreateInfo
-		.setDepthAttachmentFormat(Renderer.DepthBuffer.Format);
+		.setDepthAttachmentFormat(Renderer.DepthBuffer.Format)
+		.setColorAttachmentFormats(Vulkan.SwapchainFormat);
 
 	// pipeline
 	vk::GraphicsPipelineCreateInfo pipelineCreateInfo;
@@ -205,7 +221,7 @@ void DepthRenderPass::CreatePipeline()
 	Pipeline = r.value;
 }
 
-void DepthRenderPass::CreateDescriptorSetLayout()
+void DiskRenderPass::CreateDescriptorSetLayout()
 {
 	vk::DescriptorSetLayoutBinding binding;
 	binding
@@ -218,7 +234,7 @@ void DepthRenderPass::CreateDescriptorSetLayout()
 	DescriptorSetLayout = Vulkan.Device.createDescriptorSetLayout(info);
 }
 
-void DepthRenderPass::CreateDescriptorSet()
+void DiskRenderPass::CreateDescriptorSet()
 {
 	vk::DescriptorSetAllocateInfo info;
 	info.setDescriptorPool(Vulkan.DescriptorPool)
@@ -230,7 +246,7 @@ void DepthRenderPass::CreateDescriptorSet()
 	DescriptorSet = r.front();
 }
 
-void DepthRenderPass::CreateUniformBuffer()
+void DiskRenderPass::CreateUniformBuffer()
 {
 	UniformBuffer.Create(
 		sizeof(Uniforms),
@@ -240,7 +256,7 @@ void DepthRenderPass::CreateUniformBuffer()
 	);
 }
 
-void DepthRenderPass::UpdateUniforms()
+void DiskRenderPass::UpdateUniforms()
 {
 	Uniforms.Projection = Renderer.Camera.GetProjection();
 	Uniforms.View = Renderer.Camera.GetView();
@@ -250,7 +266,7 @@ void DepthRenderPass::UpdateUniforms()
 	UniformBuffer.Map(&Uniforms, sizeof(Uniforms));
 }
 
-void DepthRenderPass::UpdateDescriptorSets()
+void DiskRenderPass::UpdateDescriptorSets()
 {
 	vk::DescriptorBufferInfo bufferInfo;
 	bufferInfo

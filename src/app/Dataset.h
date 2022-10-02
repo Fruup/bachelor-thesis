@@ -5,7 +5,8 @@
 
 #include <engine/assets/AssetPath.h>
 
-using Particle = std::array<float, 3>;
+//using Particle = std::array<float, 3>;
+using Particle = glm::vec3;
 
 class Dataset
 {
@@ -21,7 +22,7 @@ public:
 
 	std::vector<uint32_t> GetNeighbors(const glm::vec3& position, uint32_t index);
 
-	const float ParticleRadius;
+	float ParticleRadius;
 
 	std::vector<Snapshot> Snapshots;
 	std::vector<CompactNSearch::NeighborhoodSearch> NSearch;

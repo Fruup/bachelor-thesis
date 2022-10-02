@@ -16,6 +16,8 @@ layout (location = 0) in FRAGMENT_IN
 	vec2 UV;
 } Input;
 
+layout (location = 0) out vec4 Color;
+
 void main()
 {
 	// compute spherical offset from UVs
@@ -34,5 +36,6 @@ void main()
 	const vec4 pScreen = Uniforms.Projection * vec4(pView, 1);
 	const float zScreen = pScreen.z / pScreen.w;
 
+	Color = vec4(vec3(sphericalOffset), 1);
 	gl_FragDepth = zScreen;
 }

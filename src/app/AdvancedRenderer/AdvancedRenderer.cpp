@@ -8,6 +8,7 @@
 #include <engine/utils/PerformanceTimer.h>
 
 #include "app/Kernel.h"
+#include "app/Utils.h"
 
 #include <fstream>
 #include <thread>
@@ -25,7 +26,16 @@ std::thread RayMarchThread;
 std::atomic_bool RayMarchFinished = true;
 std::condition_variable ConditionVariable;
 std::mutex Mutex;
-bool ShouldTerminateThread = true;
+bool ShouldTerminateThread = false;
+
+bool s_EnableDepthPass = true;
+bool s_EnableRayMarch = false;
+bool s_EnableGaussPass = true;
+bool s_EnableCoordinateSystem = true;
+bool s_EnableComposition = true;
+bool s_EnableShowDepth = false;
+
+float s_CorrectionCoeff = 0.1f;
 
 // ------------------------------------------------------------------------
 
@@ -37,6 +47,8 @@ decltype(AdvancedRenderer::Vertex::Attributes) AdvancedRenderer::Vertex::Attribu
 	vk::VertexInputAttributeDescription{ 0, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, Position) },
 	vk::VertexInputAttributeDescription{ 1, 0, vk::Format::eR32G32Sfloat, offsetof(Vertex, UV) },
 };
+
+const int bla = offsetof(AdvancedRenderer::Vertex, UV);
 
 decltype(AdvancedRenderer::Vertex::Binding) AdvancedRenderer::Vertex::Binding = vk::VertexInputBindingDescription{
 	0, // uint32_t binding
@@ -61,35 +73,6 @@ void DumpDataToFile(const char* filename, const void* data, size_t size)
 	file.close();
 }
 
-void TransitionImageLayout(vk::Image image,
-						   vk::ImageLayout oldLayout,
-						   vk::ImageLayout newLayout,
-						   vk::AccessFlags srcAccessMask,
-						   vk::AccessFlags dstAccessMask,
-						   vk::PipelineStageFlags srcStageMask,
-						   vk::PipelineStageFlags dstStageMask)
-{
-	vk::ImageMemoryBarrier barrier;
-	barrier
-		.setOldLayout(oldLayout)
-		.setNewLayout(newLayout)
-		.setSrcAccessMask(srcAccessMask)
-		.setDstAccessMask(dstAccessMask)
-		.setImage(image)
-		.setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor,
-													   0, /* baseMipLevel */
-													   1, /* levelCount */
-													   0, /* baseArrayLayer */
-													   1  /* layerCount */ ));
-
-	Vulkan.CommandBuffer.pipelineBarrier(srcStageMask,
-										 dstStageMask,
-										 {},
-										 {},
-										 {},
-										 barrier);
-}
-
 // ------------------------------------------------------------------------
 // PUBLIC FUNCTIONS
 
@@ -98,6 +81,7 @@ AdvancedRenderer::AdvancedRenderer() :
 	CompositionRenderPass(*this),
 	GaussRenderPass(*this),
 	ShowImageRenderPass(*this),
+	CoordinateSystemRenderPass(*this),
 	CameraController(Camera)
 {
 }
@@ -116,6 +100,10 @@ void AdvancedRenderer::Init(::Dataset* dataset)
 	DepthRenderPass.Init();
 	CompositionRenderPass.Init();
 	GaussRenderPass.Init();
+	CoordinateSystemRenderPass.Init();
+
+	ShowImageRenderPass.ImageView = DepthBuffer.GPU.ImageView;
+	ShowImageRenderPass.Sampler = DepthBuffer.GPU.Sampler;
 	ShowImageRenderPass.Init();
 
 	VertexBuffer.Create(6 * Dataset->MaxParticles * sizeof(Vertex));
@@ -128,11 +116,6 @@ void AdvancedRenderer::Init(::Dataset* dataset)
 		1000.0f
 	);
 
-	
-	//CameraController.SetPosition({ 0, 3, -5 });
-	CameraController.SetPosition({ 10.0f, 2.5f, -16.0f });
-	//CameraController.SetOrientation(glm::quatLookAtLH(-glm::normalize(CameraController.Position), { 0, 1, 0 }));
-	CameraController.SetOrientation(glm::quatLookAtLH(-glm::normalize(glm::vec3(0, 3, -5)), { 0, 1, 0 }));
 	CameraController.ComputeMatrices();
 
 	// start worker thread
@@ -149,6 +132,7 @@ void AdvancedRenderer::Exit()
 	delete Dataset;
 	VertexBuffer.Destroy();
 
+	CoordinateSystemRenderPass.Exit();
 	ShowImageRenderPass.Exit();
 	GaussRenderPass.Exit();
 	CompositionRenderPass.Exit();
@@ -162,7 +146,8 @@ void AdvancedRenderer::Exit()
 
 void AdvancedRenderer::Update(float time)
 {
-	s_ProcessTimer += time;
+	if (s_EnableRayMarch)
+		s_ProcessTimer += time;
 
 	CameraController.Update(time);
 }
@@ -217,33 +202,35 @@ void AdvancedRenderer::Render()
 
 		CollectRenderData();
 
-		DepthBuffer.TransitionLayout(vk::ImageLayout::eDepthAttachmentOptimal,
-									 vk::AccessFlagBits::eDepthStencilAttachmentRead,
-									 // vk::AccessFlagBits::eDepthStencilAttachmentWrite,
-									 vk::PipelineStageFlagBits::eEarlyFragmentTests |
-									 vk::PipelineStageFlagBits::eLateFragmentTests);
+		if (s_EnableDepthPass)
+		{
+			DepthBuffer.TransitionLayout(vk::ImageLayout::eDepthAttachmentOptimal,
+										 vk::AccessFlagBits::eDepthStencilAttachmentRead |
+										 vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+										 vk::PipelineStageFlagBits::eEarlyFragmentTests |
+										 vk::PipelineStageFlagBits::eLateFragmentTests);
 
-		DepthRenderPass.Begin();
-		DrawDepthPass();
-		DepthRenderPass.End();
+			DepthRenderPass.Begin();
+			DrawDepthPass();
+			DepthRenderPass.End();
+		}
 
-		DepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
-									 vk::AccessFlagBits::eColorAttachmentRead,
-									 vk::PipelineStageFlagBits::eColorAttachmentOutput);
+		if (s_EnableGaussPass)
+		{
+			DepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
+										 vk::AccessFlagBits::eColorAttachmentRead,
+										 vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
-		SmoothedDepthBuffer.TransitionLayout(vk::ImageLayout::eColorAttachmentOptimal,
-									 vk::AccessFlagBits::eColorAttachmentWrite,
-									 vk::PipelineStageFlagBits::eColorAttachmentOutput);
+			SmoothedDepthBuffer.TransitionLayout(vk::ImageLayout::eColorAttachmentOptimal,
+												 vk::AccessFlagBits::eColorAttachmentWrite,
+												 vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
-		GaussRenderPass.Begin();
-		DrawFullscreenQuad();
-		GaussRenderPass.End();
+			GaussRenderPass.Begin();
+			DrawFullscreenQuad();
+			GaussRenderPass.End();
+		}
 
-		/*DepthBuffer.TransitionLayout(vk::ImageLayout::eTransferSrcOptimal,
-									 vk::AccessFlagBits::eTransferRead,
-									 vk::PipelineStageFlagBits::eTransfer);
-
-		SmoothedDepthBuffer.TransitionLayout(vk::ImageLayout::eTransferSrcOptimal,
+		DepthBuffer.TransitionLayout(vk::ImageLayout::eTransferSrcOptimal,
 									 vk::AccessFlagBits::eTransferRead,
 									 vk::PipelineStageFlagBits::eTransfer);
 
@@ -251,39 +238,37 @@ void AdvancedRenderer::Render()
 										 vk::AccessFlagBits::eTransferWrite,
 										 vk::PipelineStageFlagBits::eTransfer);
 
-		NormalsBuffer.TransitionLayout(vk::ImageLayout::eTransferDstOptimal,
+		/*NormalsBuffer.TransitionLayout(vk::ImageLayout::eTransferDstOptimal,
 									   vk::AccessFlagBits::eTransferWrite,
-									   vk::PipelineStageFlagBits::eTransfer);
+									   vk::PipelineStageFlagBits::eTransfer);*/
 
 		Vulkan.CommandBuffer.end();
-		Vulkan.Submit();
-		Vulkan.WaitForRenderingFinished();
-		
-		SmoothedDepthBuffer.CopyFromGPU();
 
-		float* data = reinterpret_cast<float*>(Vulkan.Device.mapMemory(SmoothedDepthBuffer.CPU.Memory, 0, VK_WHOLE_SIZE));
+		{
+			PROFILE_SCOPE("Submit and wait");
 
-		DumpDataToFile("OUT", data, SmoothedDepthBuffer.Size);*/
+			Vulkan.Submit();
+			Vulkan.WaitForRenderingFinished();
+		}
 
-		/*if (RayMarchFinished)
-			DepthBuffer.CopyFromGPU();*/
+		if (RayMarchFinished)
+			DepthBuffer.CopyFromGPU();
 	}
 
-	/*if (RayMarchFinished && s_ProcessTimer >= s_ProcessTimerMax)
+	if (RayMarchFinished && s_ProcessTimer >= s_ProcessTimerMax)
 	{
 		RayMarchFinished = false;
 
 		ConditionVariable.notify_all();
-	}*/
+	}
 
 	{
 		PROFILE_SCOPE("Post-marching");
 
-#if 0
 		if (RayMarchFinished)
 		{
 			PositionsBuffer.CopyToGPU();
-			NormalsBuffer.CopyToGPU();
+			//NormalsBuffer.CopyToGPU();
 		}
 
 		Vulkan.CommandBuffer.reset();
@@ -294,18 +279,13 @@ void AdvancedRenderer::Render()
 										 vk::AccessFlagBits::eColorAttachmentRead,
 										 vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
-		NormalsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
+		/*NormalsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
 									   vk::AccessFlagBits::eColorAttachmentRead,
-									   vk::PipelineStageFlagBits::eColorAttachmentOutput);
+									   vk::PipelineStageFlagBits::eColorAttachmentOutput);*/
 
 		DepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
 									 vk::AccessFlagBits::eColorAttachmentRead,
 									 vk::PipelineStageFlagBits::eColorAttachmentOutput);
-#endif
-
-		PositionsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
-										 vk::AccessFlagBits::eColorAttachmentRead,
-										 vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
 		SmoothedDepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
 											 vk::AccessFlagBits::eColorAttachmentRead,
@@ -319,13 +299,25 @@ void AdvancedRenderer::Render()
 							  vk::PipelineStageFlagBits::eTopOfPipe,
 							  vk::PipelineStageFlagBits::eColorAttachmentOutput);
 
-		/*ShowImageRenderPass.Begin();
-		DrawFullscreenQuad();
-		ShowImageRenderPass.End();*/
+		if (s_EnableShowDepth)
+		{
+			ShowImageRenderPass.Begin();
+			DrawFullscreenQuad();
+			ShowImageRenderPass.End();
+		}
 
-		CompositionRenderPass.Begin();
-		DrawFullscreenQuad();
-		CompositionRenderPass.End();
+		if (s_EnableComposition)
+		{
+			CompositionRenderPass.Begin();
+			DrawFullscreenQuad();
+			CompositionRenderPass.End();
+		}
+
+		if (s_EnableCoordinateSystem)
+		{
+			CoordinateSystemRenderPass.Begin();
+			CoordinateSystemRenderPass.End();
+		}
 	}
 
 	//   Done in Renderer:
@@ -341,15 +333,57 @@ void AdvancedRenderer::RenderUI()
 	ImGui::SliderInt("Frame", &CurrentFrame, 0, Dataset->Snapshots.size() - 1);
 
 	ImGui::SliderInt("# steps", &s_MaxSteps, 0, 64);
-	ImGui::DragFloat("Step size", &s_StepSize, 0.1f, 0.000001f, 10.0f, "%f", ImGuiSliderFlags_Logarithmic);
+	ImGui::DragFloat("Step size", &s_StepSize, 0.001f, 0.001f, 1.0f, "%f");
 	ImGui::DragFloat("Iso", &s_IsoDensity, 0.1f, 0.001f, 1000.0f, "%f", ImGuiSliderFlags_Logarithmic);
 
-	//s_ShouldProcess = ImGui::Button("Process");
+	ImGui::SliderFloat("Blur spread", &GaussRenderPass.Spread, 1.0f, 32.0f);
+	ImGui::DragFloat("Particle radius", &Dataset->ParticleRadius, 0.01f, 0.1f, 3.0f);
+	ImGui::DragFloat("Anisotropy", &s_CorrectionCoeff, 0.001f, 0.0f, 1.0f);
 
-	float density = ComputeDensity({ 0, 0, 0 });
-	ImGui::InputFloat("D", &density, 0.0f, 0.0f, "%f");
+	{
+		ImGui::Separator();
+		ImGui::Text("Enable render passes");
 
-	ImGui::InputFloat3("Camera", CameraController.Position.data.data, "%.3f", ImGuiInputTextFlags_ReadOnly);
+		ImGui::Checkbox("Depth", &s_EnableDepthPass);
+		ImGui::Checkbox("Coordinate System", &s_EnableCoordinateSystem);
+		ImGui::Checkbox("Gaussian blur", &s_EnableGaussPass);
+		ImGui::Checkbox("Ray march", &s_EnableRayMarch);
+	}
+
+	{
+		ImGui::Separator();
+		ImGui::Text("What to show");
+
+		ImGui::TreePush("last_render_pass");
+
+		static int radio = 0;
+		ImGui::RadioButton("Composition", &radio, 0);
+		
+		if (ImGui::RadioButton("Depth", &radio, 1))
+		{
+			ShowImageRenderPass.ImageView = DepthBuffer.GPU.ImageView;
+			ShowImageRenderPass.Sampler = DepthBuffer.GPU.Sampler;
+		}
+
+		if (ImGui::RadioButton("Blurred depth", &radio, 2))
+		{
+			ShowImageRenderPass.ImageView = SmoothedDepthBuffer.GPU.ImageView;
+			ShowImageRenderPass.Sampler = SmoothedDepthBuffer.GPU.Sampler;
+		}
+
+		ImGui::TreePop();
+
+		if (radio == 0)
+		{
+			s_EnableComposition = true;
+			s_EnableShowDepth = false;
+		}
+		else if (radio == 1 || radio == 2)
+		{
+			s_EnableComposition = false;
+			s_EnableShowDepth = true;
+		}
+	}
 
 	ImGui::End();
 
@@ -361,25 +395,25 @@ void AdvancedRenderer::RenderUI()
 
 void AdvancedRenderer::CollectRenderData()
 {
+	PROFILE_FUNCTION();
+
 	NumVertices = 0;
 
 	Vertex* target = reinterpret_cast<Vertex*>(
 		Vulkan.Device.mapMemory(VertexBuffer.BufferCPU.Memory, 0, VertexBuffer.BufferCPU.Size));
 
-	const glm::vec3 up(0, 1, 0);
-
 	for (auto& particle : Dataset->Snapshots[CurrentFrame])
 	{
-		glm::vec3 z = CameraController.System[2];
-		glm::vec3 x = glm::normalize(glm::cross(up, z));
-		glm::vec3 y = glm::normalize(glm::cross(x, z));
+		glm::vec3 x = CameraController.System[0];
+		glm::vec3 y = CameraController.System[1];
 
-		glm::vec3 p(particle[0], particle[1], particle[2]);
+		glm::vec3 p = particle;
+		const float R = Dataset->ParticleRadius;
 
-		glm::vec3 topLeft     = p + Dataset->ParticleRadius * (-x + y);
-		glm::vec3 topRight    = p + Dataset->ParticleRadius * (+x + y);
-		glm::vec3 bottomLeft  = p + Dataset->ParticleRadius * (-x - y);
-		glm::vec3 bottomRight = p + Dataset->ParticleRadius * (+x - y);
+		glm::vec3 topLeft     = p + R * (-x + y);
+		glm::vec3 topRight    = p + R * (+x + y);
+		glm::vec3 bottomLeft  = p + R * (-x - y);
+		glm::vec3 bottomRight = p + R * (+x - y);
 
 		target[NumVertices++] = { topLeft, { 0, 0 } };
 		target[NumVertices++] = { bottomLeft, { 0, 1 } };
@@ -432,7 +466,7 @@ void AdvancedRenderer::RayMarch()
 
 		const float* depth = reinterpret_cast<float*>(DepthBuffer.MapCPUMemory());
 		glm::vec4* positions = reinterpret_cast<glm::vec4*>(PositionsBuffer.MapCPUMemory());
-		glm::vec4* normals = reinterpret_cast<glm::vec4*>(NormalsBuffer.MapCPUMemory());
+		//glm::vec4* normals = reinterpret_cast<glm::vec4*>(NormalsBuffer.MapCPUMemory());
 
 		#pragma omp parallel for
 		for (int y = 0; y < height; y++)
@@ -451,7 +485,7 @@ void AdvancedRenderer::RayMarch()
 							   z);
 
 				glm::vec4 worldH = Camera.GetInvProjectionView() * glm::vec4(clip, 1);
-				glm::vec3 world = glm::vec3(worldH) / worldH.w;
+				//glm::vec3 world = glm::vec3(worldH) / worldH.w;
 
 				glm::vec3 position = glm::vec3(worldH) / worldH.w;
 				glm::vec3 step = STEP_SIZE * glm::normalize(position - CameraController.Position);
@@ -473,7 +507,7 @@ void AdvancedRenderer::RayMarch()
 			}
 		}
 
-		NormalsBuffer.UnmapCPUMemory();
+		//NormalsBuffer.UnmapCPUMemory();
 		PositionsBuffer.UnmapCPUMemory();
 		DepthBuffer.UnmapCPUMemory();
 
@@ -493,16 +527,64 @@ void AdvancedRenderer::DrawFullscreenQuad()
 	Vulkan.CommandBuffer.draw(3, 1, 0, 0);
 }
 
+void PCA(const glm::vec3* data, size_t n, glm::vec3& r)
+{
+	// https://en.wikipedia.org/wiki/Principal_component_analysis
+	// "Covariance/free computation"
+
+	// compute mean
+	glm::vec3 mean(0);
+	for (size_t i = 0; i < n; i++) mean += data[i];
+	mean /= float(n);
+
+	// start with random vector
+	const float theta = RandomFloat(0.0f, glm::two_pi<float>());
+	const float phi = RandomFloat(-glm::half_pi<float>(), glm::half_pi<float>());
+	const float cosPhi = cos(phi);
+	r = glm::vec3(sin(theta) * cosPhi, sin(phi), cos(theta) * cosPhi);
+
+	float lambda;
+
+	for (size_t i = 0; i < 16; i++)
+	{
+		glm::vec3 s(0);
+		for (uint32_t j = 0; j < n; j++)
+		{
+			const glm::vec3 x = data[j] - mean;
+			s += glm::dot(x, r) * x;
+		}
+
+		r = glm::normalize(s);
+
+		const glm::vec3 error = glm::dot(r, s) * r - s;
+		if (glm::dot(error, error) < 0.0001f)
+			return;
+	}
+}
+
 float AdvancedRenderer::ComputeDensity(const glm::vec3& x)
 {
 	CubicSplineKernel K(Dataset->ParticleRadius);
 	const auto& neighbors = Dataset->GetNeighbors(x, CurrentFrame);
 
+	std::vector<glm::vec3> neighborPositions(neighbors.size());
+	for (size_t i = 0; i < neighborPositions.size(); i++)
+		neighborPositions[i] = Dataset->Snapshots[CurrentFrame][neighbors[i]];
+
+	glm::vec3 pc;
+
+#if 0
+	PCA(neighborPositions.data(), neighborPositions.size(), pc);
+#endif
+
 	float density = 0.0f;
 	for (const auto& index : neighbors)
 	{
-		const auto& p = Dataset->Snapshots[CurrentFrame][index];
-		density += K.W(x - glm::vec3(p[0], p[1], p[2]));
+		const glm::vec3& p = Dataset->Snapshots[CurrentFrame][index];
+		const glm::vec3 r = x - p;
+		const float correction = glm::dot(r, pc);
+
+		density += K.W(r - s_CorrectionCoeff * correction * pc);
 	}
 
 	return density;

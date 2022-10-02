@@ -10,13 +10,10 @@
 
 #include "app/Dataset.h"
 #include "app/AdvancedRenderer/AdvancedRenderer.h"
+#include "app/DiskRenderer/DiskRenderer.h"
 
+//auto g_Renderer = std::make_unique<DiskRenderer>();
 auto g_Renderer = std::make_unique<AdvancedRenderer>();
-
-//static std::unique_ptr<PointFluidRenderer> g_FluidRenderer(new PointFluidRenderer);
-//static std::unique_ptr<DepthFluidRenderer> g_FluidRenderer(new DepthFluidRenderer);
-
-//auto& Vulkan = Renderer::GetInstance();
 
 Renderer& Renderer::GetInstance()
 {

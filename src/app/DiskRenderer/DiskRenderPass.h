@@ -3,18 +3,20 @@
 #include <engine/renderer/objects/Shader.h>
 #include <engine/renderer/objects/Buffer.h>
 
-class AdvancedRenderer;
+class DiskRenderer;
 
-class ShowImageRenderPass
+class DiskRenderPass
 {
 public:
-	ShowImageRenderPass(AdvancedRenderer& renderer);
+	DiskRenderPass(DiskRenderer& renderer);
 
 	void Init();
 	void Exit();
 
 	void Begin();
 	void End();
+
+	void Render();
 
 private:
 	void CreateShaders();
@@ -27,7 +29,7 @@ private:
 
 	void CreateUniformBuffer();
 
-	void UpdateUniformsFullscreen();
+	void UpdateUniforms();
 
 	void UpdateDescriptorSets();
 
@@ -40,16 +42,15 @@ public:
 
 	Shader VertexShader, FragmentShader;
 
-	AdvancedRenderer& Renderer;
+	DiskRenderer& Renderer;
 
 	struct
 	{
-		float TexelWidth;
-		float TexelHeight;
-	} UniformsFullscreen;
+		glm::mat4 View;
+		glm::mat4 Projection;
 
-	Buffer UniformBufferFullscreen;
+		float Radius; // world space
+	} Uniforms;
 
-	vk::ImageView ImageView;
-	vk::Sampler Sampler;
+	Buffer UniformBuffer;
 };

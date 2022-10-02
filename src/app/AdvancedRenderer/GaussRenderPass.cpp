@@ -65,12 +65,13 @@ void ComputeGaussKernel(int N, float* out)
 #endif
 }
 
+// --------------------------------------------------------------
+// PUBLIC FUNCTIONS
+
 GaussRenderPass::GaussRenderPass(AdvancedRenderer& renderer) :
 	Renderer(renderer)
 {
 }
-
-// --------------------------------------------------------------
 
 void GaussRenderPass::Init()
 {
@@ -111,12 +112,9 @@ void GaussRenderPass::Begin()
 
 	UpdateDescriptorSet();
 
-	vk::ClearDepthStencilValue clearValue(0.0f);
-
 	vk::RenderingAttachmentInfo smoothedDepthAttachment;
 	smoothedDepthAttachment
-		.setClearValue(clearValue)
-		.setLoadOp(vk::AttachmentLoadOp::eClear)
+		.setLoadOp(vk::AttachmentLoadOp::eDontCare)
 		.setStoreOp(vk::AttachmentStoreOp::eStore)
 		.setImageView(Renderer.SmoothedDepthBuffer.GPU.ImageView)
 		.setImageLayout(vk::ImageLayout::eColorAttachmentOptimal);
@@ -352,8 +350,8 @@ void GaussRenderPass::UpdateUniforms()
 	UniformBuffer.Map(&Uniforms, sizeof(Uniforms));
 
 	// fullscreen uniforms
-	UniformsFullscreen.TexelWidth = float(1.0f) / float(Vulkan.SwapchainExtent.width);
-	UniformsFullscreen.TexelHeight = float(1.0f) / float(Vulkan.SwapchainExtent.height);
+	UniformsFullscreen.TexelWidth = Spread / float(Vulkan.SwapchainExtent.width);
+	UniformsFullscreen.TexelHeight = Spread / float(Vulkan.SwapchainExtent.height);
 
 	// copy
 	UniformBufferFullscreen.Map(&UniformsFullscreen, sizeof(UniformsFullscreen));
@@ -366,7 +364,6 @@ void GaussRenderPass::UpdateDescriptorSet()
 	uniformBufferInfo
 		.setBuffer(UniformBuffer)
 		.setOffset(0)
-		//.setRange(VK_WHOLE_SIZE);
 		.setRange(offsetof(decltype(Uniforms), Kernel) +
 				  sizeof(float) * (Uniforms.GaussN + 1) * (Uniforms.GaussN + 1));
 

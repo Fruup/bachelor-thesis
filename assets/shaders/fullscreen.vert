@@ -21,14 +21,16 @@ void main()
 	if (gl_VertexIndex == 0)
 		UV = vec2(0, 0);
 	else if (gl_VertexIndex == 1)
-		UV = vec2(0, 1);
+		UV = vec2(0, 2);
 	else if (gl_VertexIndex == 2)
-		UV = vec2(1, 0);
+		UV = vec2(2, 0);
 
 	const float w = Uniforms.TexelWidth;
 	const float h = Uniforms.TexelHeight;
 	// const float w = 0.001;
 	// const float h = 0.001;
+
+	gl_Position = vec4(2 * UV - 1, 0, 1);
 
 	tl = UV + vec2(-w, -h);
 	tm = UV + vec2( 0, -h);
@@ -38,6 +40,4 @@ void main()
 	bl = UV + vec2(-w, +h);
 	bm = UV + vec2( 0, +h);
 	br = UV + vec2(+w, +h);
-
-	gl_Position = vec4(4 * UV - 1, 0, 1);
 }
