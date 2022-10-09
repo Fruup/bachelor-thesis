@@ -13,10 +13,12 @@ class Dataset
 	using Snapshot = std::vector<Particle>;
 
 public:
-	Dataset(
-		const std::string& pathPrefix,
-		const std::string& pathSuffix = ".bgeo",
-		int startIndex = 1);
+	Dataset(const std::string& pathPrefix,
+			const std::string& pathSuffix = ".bgeo",
+			int startIndex = 1);
+
+	// generates a fluid block by randomly sampling a cube
+	Dataset(float extent, size_t numParticles);
 
 	~Dataset();
 

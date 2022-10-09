@@ -15,9 +15,9 @@
 
 // ------------------------------------------------------------------------
 
-static int s_MaxSteps = 16;
-static float s_StepSize = 0.01f;
-static float s_IsoDensity = 1.0f;
+static int s_MaxSteps = 32;
+static float s_StepSize = 0.007f;
+static float s_IsoDensity = 400.0f;
 
 static float s_ProcessTimer = 0.0f;
 constexpr const float s_ProcessTimerMax = 1.0f;
@@ -238,9 +238,9 @@ void AdvancedRenderer::Render()
 										 vk::AccessFlagBits::eTransferWrite,
 										 vk::PipelineStageFlagBits::eTransfer);
 
-		/*NormalsBuffer.TransitionLayout(vk::ImageLayout::eTransferDstOptimal,
+		NormalsBuffer.TransitionLayout(vk::ImageLayout::eTransferDstOptimal,
 									   vk::AccessFlagBits::eTransferWrite,
-									   vk::PipelineStageFlagBits::eTransfer);*/
+									   vk::PipelineStageFlagBits::eTransfer);
 
 		Vulkan.CommandBuffer.end();
 
@@ -268,7 +268,7 @@ void AdvancedRenderer::Render()
 		if (RayMarchFinished)
 		{
 			PositionsBuffer.CopyToGPU();
-			//NormalsBuffer.CopyToGPU();
+			NormalsBuffer.CopyToGPU();
 		}
 
 		Vulkan.CommandBuffer.reset();
@@ -276,20 +276,20 @@ void AdvancedRenderer::Render()
 		Vulkan.CommandBuffer.begin(beginInfo);
 
 		PositionsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
-										 vk::AccessFlagBits::eColorAttachmentRead,
-										 vk::PipelineStageFlagBits::eColorAttachmentOutput);
+										 vk::AccessFlagBits::eShaderRead,
+										 vk::PipelineStageFlagBits::eFragmentShader);
 
-		/*NormalsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
-									   vk::AccessFlagBits::eColorAttachmentRead,
-									   vk::PipelineStageFlagBits::eColorAttachmentOutput);*/
+		NormalsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
+									   vk::AccessFlagBits::eShaderRead,
+									   vk::PipelineStageFlagBits::eFragmentShader);
 
 		DepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
-									 vk::AccessFlagBits::eColorAttachmentRead,
-									 vk::PipelineStageFlagBits::eColorAttachmentOutput);
+									 vk::AccessFlagBits::eShaderRead,
+									 vk::PipelineStageFlagBits::eFragmentShader);
 
 		SmoothedDepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
-											 vk::AccessFlagBits::eColorAttachmentRead,
-											 vk::PipelineStageFlagBits::eColorAttachmentOutput);
+											 vk::AccessFlagBits::eShaderRead,
+											 vk::PipelineStageFlagBits::eFragmentShader);
 
 		TransitionImageLayout(Vulkan.SwapchainImages[Vulkan.CurrentImageIndex],
 							  vk::ImageLayout::eUndefined,
@@ -337,8 +337,10 @@ void AdvancedRenderer::RenderUI()
 	ImGui::DragFloat("Iso", &s_IsoDensity, 0.1f, 0.001f, 1000.0f, "%f", ImGuiSliderFlags_Logarithmic);
 
 	ImGui::SliderFloat("Blur spread", &GaussRenderPass.Spread, 1.0f, 32.0f);
-	ImGui::DragFloat("Particle radius", &Dataset->ParticleRadius, 0.01f, 0.1f, 3.0f);
 	ImGui::DragFloat("Anisotropy", &s_CorrectionCoeff, 0.001f, 0.0f, 1.0f);
+	
+	// does not make sense because hash grid is not recomputed
+	// ImGui::DragFloat("Particle radius", &Dataset->ParticleRadius, 0.01f, 0.1f, 3.0f);
 
 	{
 		ImGui::Separator();
@@ -444,6 +446,118 @@ void AdvancedRenderer::DrawDepthPass()
 	Vulkan.CommandBuffer.draw(NumVertices, 1, 0, 0);
 }
 
+glm::vec3 eigenToGlm(const Eigen::Vector3f& v)
+{
+	return glm::vec3(v.x(), v.y(), v.z());
+}
+
+void PCA_Exact(const glm::vec3* data,
+			   size_t n,
+			   glm::mat3& G,
+			   float particleRadius)
+{
+	/* Exact PCA using Eigen */
+
+	// prepare data points
+	Eigen::MatrixX3f X;
+	X.resize(n, Eigen::NoChange);
+
+	for (size_t i = 0; i < n; i++)
+	{
+		X(i, 0) = data[i].x;
+		X(i, 1) = data[i].y;
+		X(i, 2) = data[i].z;
+	}
+
+	// prepare weights
+	// TODO: use different kernel here (see YT13)
+	Eigen::MatrixXf L;
+	L.resize(n, n);
+
+	CubicSplineKernel K(particleRadius);
+
+	for (size_t i = 0; i < n; i++)
+	{
+		glm::vec3 x_i = data[i];
+
+		for (size_t j = i; j < n; j++)
+		{
+			glm::vec3 x_j = data[j];
+			float d_ij;
+
+			if (i == j)
+			{
+				d_ij = 0.0f;
+				for (size_t j2 = 0; j2 < n; j2++)
+				{
+					glm::vec3 x_j2 = data[j2];
+					d_ij += K.W(x_i - x_j2);
+				}
+			}
+			else d_ij = -K.W(x_i - x_j);
+
+			L(i, j) = d_ij;
+			L(j, i) = d_ij;
+		}
+	}
+
+	// decompose
+	Eigen::Matrix3f C = X.transpose() * L * X;
+	Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> solver(C);
+
+	if (solver.info() != Eigen::Success)
+	{
+		SPDLOG_ERROR("Failed to compute eigenvectors!");
+		return;
+	}
+
+	Eigen::Matrix3f S_inv = (solver.eigenvalues().inverse()).asDiagonal();
+	Eigen::Matrix3f R = solver.eigenvectors();
+
+	Eigen::Matrix3f G_ = (1.0f / particleRadius) * R * S_inv * R.transpose();
+
+	for (size_t i = 0; i < 3; i++)
+		G[i] = {
+			G_(0, i),
+			G_(1, i),
+			G_(2, i),
+		};
+}
+
+void PCA(const glm::vec3* data, size_t n, glm::vec3& r)
+{
+	// https://en.wikipedia.org/wiki/Principal_component_analysis
+	// "Covariance/free computation"
+
+	// start with random vector
+	const float theta = RandomFloat(0.0f, glm::two_pi<float>());
+	const float phi = RandomFloat(-glm::half_pi<float>(), glm::half_pi<float>());
+	const float cosPhi = cos(phi);
+	r = glm::vec3(sin(theta) * cosPhi, sin(phi), cos(theta) * cosPhi);
+
+	const size_t N = 64;
+
+	for (size_t i = 0; i < N; i++)
+	{
+		glm::vec3 s(0);
+		for (uint32_t j = 0; j < n; j++)
+		{
+			const glm::vec3 x = data[j];
+			s += glm::dot(x, r) * x;
+		}
+
+		const glm::vec3 error = glm::dot(r, s) * r - s;
+
+		r = glm::normalize(s);
+
+		if (glm::dot(error, error) < 0.000001f)
+		{
+			//SPDLOG_WARN("Break at {}/{}.", i, N);
+			return;
+		}
+	}
+}
+
 void AdvancedRenderer::RayMarch()
 {
 	while (!ShouldTerminateThread)
@@ -466,7 +580,7 @@ void AdvancedRenderer::RayMarch()
 
 		const float* depth = reinterpret_cast<float*>(DepthBuffer.MapCPUMemory());
 		glm::vec4* positions = reinterpret_cast<glm::vec4*>(PositionsBuffer.MapCPUMemory());
-		//glm::vec4* normals = reinterpret_cast<glm::vec4*>(NormalsBuffer.MapCPUMemory());
+		glm::vec4* normals = reinterpret_cast<glm::vec4*>(NormalsBuffer.MapCPUMemory());
 
 		#pragma omp parallel for
 		for (int y = 0; y < height; y++)
@@ -477,7 +591,8 @@ void AdvancedRenderer::RayMarch()
 				uint32_t index = y * width + x;
 				const float z = depth[index];
 
-				positions[index] = glm::vec4(0, 0, 0, 1);
+				positions[index] = glm::vec4(0);
+				normals[index] = glm::vec4(0);
 				if (z == 1.0f) continue;
 
 				glm::vec3 clip(2.0f * float(x) / widthF - 1.0f,
@@ -492,14 +607,63 @@ void AdvancedRenderer::RayMarch()
 
 				for (int i = 0; i < MAX_STEPS; i++)
 				{
+					// step
 					position += step;
-					float density = ComputeDensity(position);
+
+					glm::vec3 pc(0);
+					float density = 0.0f;
+
+					CubicSplineKernel K(Dataset->ParticleRadius);
+					const auto& neighbors = Dataset->GetNeighbors(position, CurrentFrame);
+
+#if 1
+					glm::vec3 neighborsMean(0);
+					std::vector<glm::vec3> neighborPositions(neighbors.size());
+					for (size_t i = 0; i < neighborPositions.size(); i++)
+					{
+						neighborPositions[i] = Dataset->Snapshots[CurrentFrame][neighbors[i]];
+						neighborsMean += neighborPositions[i];
+					}
+					neighborsMean /= float(neighborPositions.size());
+
+					// normalize mean to 0
+					for (size_t i = 0; i < neighborPositions.size(); i++)
+						neighborPositions[i] -= neighborsMean;
+
+					// find primary axis
+					PCA(neighborPositions.data(), neighborPositions.size(), pc);
+#endif
+
+					// cannot use 'neighborPositions' here as it is shifted to mean 0
+					for (const auto& index : neighbors)
+					{
+						const glm::vec3& neighborPosition = Dataset->Snapshots[CurrentFrame][index];
+						const glm::vec3 r = neighborPosition - position;
+						const float correction = glm::dot(r, pc);
+
+						density += K.W(r - s_CorrectionCoeff * correction * pc);
+						// density += K.W(r);
+					}
+
 					if (density >= ISO_DENSITY)
 					{
-						//positions[index] = glm::vec4(density / ISO_DENSITY);
-						positions[index] = glm::vec4(position, 0);
-						
-						//normals[index] = glm::vec4(0);
+						// set position
+						positions[index] = glm::vec4(position, 1);
+
+#if 1
+						// compute object normal
+						glm::vec3 normal(0);
+
+						for (const auto& index : neighbors)
+						{
+							const glm::vec3& neighborPosition = Dataset->Snapshots[CurrentFrame][index];
+							const glm::vec3 r = neighborPosition - position;
+
+							normal += K.gradW(r);
+						}
+
+						normals[index] = glm::vec4(glm::normalize(normal), 0);
+#endif
 
 						i = MAX_STEPS;
 					}
@@ -507,7 +671,7 @@ void AdvancedRenderer::RayMarch()
 			}
 		}
 
-		//NormalsBuffer.UnmapCPUMemory();
+		NormalsBuffer.UnmapCPUMemory();
 		PositionsBuffer.UnmapCPUMemory();
 		DepthBuffer.UnmapCPUMemory();
 
@@ -525,41 +689,6 @@ void AdvancedRenderer::DrawFullscreenQuad()
 		offset);
 
 	Vulkan.CommandBuffer.draw(3, 1, 0, 0);
-}
-
-void PCA(const glm::vec3* data, size_t n, glm::vec3& r)
-{
-	// https://en.wikipedia.org/wiki/Principal_component_analysis
-	// "Covariance/free computation"
-
-	// compute mean
-	glm::vec3 mean(0);
-	for (size_t i = 0; i < n; i++) mean += data[i];
-	mean /= float(n);
-
-	// start with random vector
-	const float theta = RandomFloat(0.0f, glm::two_pi<float>());
-	const float phi = RandomFloat(-glm::half_pi<float>(), glm::half_pi<float>());
-	const float cosPhi = cos(phi);
-	r = glm::vec3(sin(theta) * cosPhi, sin(phi), cos(theta) * cosPhi);
-
-	float lambda;
-
-	for (size_t i = 0; i < 16; i++)
-	{
-		glm::vec3 s(0);
-		for (uint32_t j = 0; j < n; j++)
-		{
-			const glm::vec3 x = data[j] - mean;
-			s += glm::dot(x, r) * x;
-		}
-
-		r = glm::normalize(s);
-
-		const glm::vec3 error = glm::dot(r, s) * r - s;
-		if (glm::dot(error, error) < 0.0001f)
-			return;
-	}
 }
 
 float AdvancedRenderer::ComputeDensity(const glm::vec3& x)

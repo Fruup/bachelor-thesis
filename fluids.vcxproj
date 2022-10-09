@@ -79,7 +79,7 @@
       <PrecompiledHeaderFile>engine/hzpch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>DEBUG;SOLUTION_DIRECTORY=".";%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\src;vendor\CompactNSearch\include;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\src;vendor\CompactNSearch\include;vendor\eigen\include;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <Optimization>Disabled</Optimization>
       <OpenMPSupport>true</OpenMPSupport>
@@ -98,7 +98,7 @@
       <PrecompiledHeaderFile>engine/hzpch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>NDEBUG;RELEASE;SOLUTION_DIRECTORY=".";%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\src;vendor\CompactNSearch\include;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\src;vendor\CompactNSearch\include;vendor\eigen\include;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -123,7 +123,7 @@
       <PrecompiledHeaderFile>engine/hzpch.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <PreprocessorDefinitions>NDEBUG;PRODUCTION;SOLUTION_DIRECTORY=".";%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\src;vendor\CompactNSearch\include;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>src;vendor;vendor\glm;vendor\yaml-cpp\include;vendor\stb_image;vendor\spdlog\include;vendor\imgui;vendor\partio\src;vendor\CompactNSearch\include;vendor\eigen\include;E:\dev\VulkanSDK\1.3.224.1\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <Optimization>Full</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
@@ -144,12 +144,11 @@
     <ClInclude Include="src\app\AdvancedRenderer\AdvancedRenderer.h" />
     <ClInclude Include="src\app\AdvancedRenderer\BilateralBuffer.h" />
     <ClInclude Include="src\app\AdvancedRenderer\CompositionRenderPass.h" />
+    <ClInclude Include="src\app\AdvancedRenderer\CoordinateSystemRenderPass.h" />
     <ClInclude Include="src\app\AdvancedRenderer\DepthRenderPass.h" />
     <ClInclude Include="src\app\AdvancedRenderer\GaussRenderPass.h" />
     <ClInclude Include="src\app\AdvancedRenderer\ShowImageRenderPass.h" />
     <ClInclude Include="src\app\Dataset.h" />
-    <ClInclude Include="src\app\DiskRenderer\DiskRenderer.h" />
-    <ClInclude Include="src\app\DiskRenderer\DiskRenderPass.h" />
     <ClInclude Include="src\app\Kernel.h" />
     <ClInclude Include="src\app\Utils.h" />
     <ClInclude Include="src\engine\Application.h" />
@@ -165,7 +164,6 @@
     <ClInclude Include="src\engine\events\Mouse.h" />
     <ClInclude Include="src\engine\hzpch.h" />
     <ClInclude Include="src\engine\input\Input.h" />
-    <ClInclude Include="src\app\AdvancedRenderer\CoordinateSystemRenderPass.h" />
     <ClInclude Include="src\engine\renderer\ImGuiRenderPass.h" />
     <ClInclude Include="src\engine\renderer\Renderer.h" />
     <ClInclude Include="src\engine\renderer\objects\Buffer.h" />
@@ -188,12 +186,11 @@
     <ClCompile Include="src\app\AdvancedRenderer\AdvancedRenderer.cpp" />
     <ClCompile Include="src\app\AdvancedRenderer\BilateralBuffer.cpp" />
     <ClCompile Include="src\app\AdvancedRenderer\CompositionRenderPass.cpp" />
+    <ClCompile Include="src\app\AdvancedRenderer\CoordinateSystemRenderPass.cpp" />
     <ClCompile Include="src\app\AdvancedRenderer\DepthRenderPass.cpp" />
     <ClCompile Include="src\app\AdvancedRenderer\GaussRenderPass.cpp" />
     <ClCompile Include="src\app\AdvancedRenderer\ShowImageRenderPass.cpp" />
     <ClCompile Include="src\app\Dataset.cpp" />
-    <ClCompile Include="src\app\DiskRenderer\DiskRenderer.cpp" />
-    <ClCompile Include="src\app\DiskRenderer\DiskRenderPass.cpp" />
     <ClCompile Include="src\app\Kernel.cpp" />
     <ClCompile Include="src\app\Utils.cpp" />
     <ClCompile Include="src\engine\Application.cpp" />
@@ -207,7 +204,6 @@
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\engine\input\Input.cpp" />
-    <ClCompile Include="src\app\AdvancedRenderer\CoordinateSystemRenderPass.cpp" />
     <ClCompile Include="src\engine\renderer\ImGuiRenderPass.cpp" />
     <ClCompile Include="src\engine\renderer\Renderer.cpp" />
     <ClCompile Include="src\engine\renderer\RendererInit.cpp" />
@@ -223,7 +219,9 @@
     <ClCompile Include="src\engine\utils\ImageCPU.cpp" />
     <ClCompile Include="src\engine\utils\PerformanceTimer.cpp" />
     <ClCompile Include="src\engine\utils\Statistics.cpp" />
-    <ClCompile Include="src\engine\utils\Utils.cpp" />
+    <ClCompile Include="src\engine\utils\Utils.cpp">
+      <ObjectFileName>$(IntDir)\Utils1.obj</ObjectFileName>
+    </ClCompile>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="vendor\imgui\backends\imgui_impl_glfw.cpp" />
     <ClCompile Include="vendor\imgui\backends\imgui_impl_vulkan.cpp" />

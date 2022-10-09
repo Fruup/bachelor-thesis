@@ -2,6 +2,8 @@
 
 #include "Dataset.h"
 
+#include "app/Utils.h"
+
 Dataset::Dataset(const std::string& pathPrefix, const std::string& pathSuffix, int startIndex) :
 	//ParticleRadius(0.025f)
 	ParticleRadius(0.1f)
@@ -35,6 +37,33 @@ Dataset::Dataset(const std::string& pathPrefix, const std::string& pathSuffix, i
 		++i;
 	}
 
+	MaxParticles = 0;
+	for (const auto& s : Snapshots)
+		MaxParticles = std::max(MaxParticles, s.size());
+
+	Loaded = true;
+}
+
+Dataset::Dataset(float extent, size_t numParticles) :
+	ParticleRadius(0.1f)
+{
+	Snapshot s;
+
+	for (size_t i = 0; i < numParticles; i++)
+	{
+		s.push_back({
+			RandomFloat(-extent, extent),
+			RandomFloat(-extent, extent),
+			RandomFloat(-extent, extent),
+		});
+	}
+
+	Snapshots.push_back(s);
+
+	// build search structure
+	BuildCompactNSearch();
+
+	MaxParticles = 0;
 	for (const auto& s : Snapshots)
 		MaxParticles = std::max(MaxParticles, s.size());
 

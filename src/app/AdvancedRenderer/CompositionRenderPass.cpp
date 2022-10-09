@@ -255,6 +255,13 @@ void CompositionRenderPass::CreateDescriptorSetLayout()
 		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
 		.setStageFlags(vk::ShaderStageFlagBits::eFragment);
 
+	vk::DescriptorSetLayoutBinding normalsAttachment;
+	normalsAttachment
+		.setBinding(4)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+		.setStageFlags(vk::ShaderStageFlagBits::eFragment);
+
 	vk::DescriptorSetLayoutBinding smoothedDepthAttachment;
 	smoothedDepthAttachment
 		.setBinding(3)
@@ -262,10 +269,11 @@ void CompositionRenderPass::CreateDescriptorSetLayout()
 		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
 		.setStageFlags(vk::ShaderStageFlagBits::eFragment);
 
-	std::array<vk::DescriptorSetLayoutBinding, 4> bindings = {
+	std::array<vk::DescriptorSetLayoutBinding, 5> bindings = {
 		uniformBuffer,
 		uniformBufferFullscreen,
 		positionsAttachment,
+		normalsAttachment,
 		smoothedDepthAttachment,
 	};
 
@@ -309,7 +317,7 @@ void CompositionRenderPass::UpdateUniforms()
 	Uniforms.CameraPosition = Renderer.CameraController.Position;
 	Uniforms.CameraDirection = Renderer.CameraController.System[2];
 
-	Uniforms.LightDirection = glm::vec3(0, -1, -1);
+	Uniforms.LightDirection = glm::normalize(glm::vec3(0, -1, +1));
 
 	// copy
 	UniformBuffer.Map(&Uniforms, sizeof(Uniforms));
@@ -374,6 +382,22 @@ void CompositionRenderPass::UpdateDescriptorSets()
 		.setDstBinding(1)
 		.setDstSet(DescriptorSet);
 
+	// object normals
+	vk::DescriptorImageInfo normalsImageInfo;
+	normalsImageInfo
+		.setImageView(Renderer.NormalsBuffer.GPU.ImageView)
+		.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+		.setSampler(Renderer.NormalsBuffer.GPU.Sampler);
+
+	vk::WriteDescriptorSet writeNormals;
+	writeNormals
+		.setImageInfo(normalsImageInfo)
+		.setDescriptorCount(1)
+		.setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+		.setDstArrayElement(0)
+		.setDstBinding(4)
+		.setDstSet(DescriptorSet);
+
 	// smoothed depth
 	vk::DescriptorImageInfo smoothedDepthImageInfo;
 	smoothedDepthImageInfo
@@ -391,10 +415,11 @@ void CompositionRenderPass::UpdateDescriptorSets()
 		.setDstSet(DescriptorSet);
 
 	// write
-	std::array<vk::WriteDescriptorSet, 4> writes = {
+	std::array<vk::WriteDescriptorSet, 5> writes = {
 		writeUniform,
 		writeUniformFullscreen,
 		writePositions,
+		writeNormals,
 		writeSmoothedDepth,
 	};
 

@@ -80,6 +80,7 @@ project "fluids"
 		"vendor/imgui",
 		"vendor/partio/src",
 		"vendor/CompactNSearch/include",
+		"vendor/eigen/include",
 		"%{VULKAN_SDK}/Include",
 	}
 

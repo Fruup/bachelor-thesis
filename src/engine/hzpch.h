@@ -31,6 +31,8 @@
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/matrix_clip_space.hpp>
 
+#include <Eigen/Dense>
+
 #include <imgui/imgui.h>
 
 #include "engine/Engine.h"

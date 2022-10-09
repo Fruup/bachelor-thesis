@@ -10,6 +10,9 @@
     <Filter Include="src\app\AdvancedRenderer">
       <UniqueIdentifier>{192D0A96-0552-5916-2E9D-3EA61A215834}</UniqueIdentifier>
     </Filter>
+    <Filter Include="src\app\DiskRenderer">
+      <UniqueIdentifier>{EEF347FB-DA82-D1C4-83A1-E5BF6F0FE26A}</UniqueIdentifier>
+    </Filter>
     <Filter Include="src\app\renderer">
       <UniqueIdentifier>{6377EE13-4F70-0D66-78A2-F2EA64FAEC71}</UniqueIdentifier>
     </Filter>
@@ -60,13 +63,25 @@
     <ClInclude Include="src\app\AdvancedRenderer\CompositionRenderPass.h">
       <Filter>src\app\AdvancedRenderer</Filter>
     </ClInclude>
+    <ClInclude Include="src\app\AdvancedRenderer\CoordinateSystemRenderPass.h">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClInclude>
     <ClInclude Include="src\app\AdvancedRenderer\DepthRenderPass.h">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\app\AdvancedRenderer\GaussRenderPass.h">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\app\AdvancedRenderer\ShowImageRenderPass.h">
       <Filter>src\app\AdvancedRenderer</Filter>
     </ClInclude>
     <ClInclude Include="src\app\Dataset.h">
       <Filter>src\app</Filter>
     </ClInclude>
     <ClInclude Include="src\app\Kernel.h">
+      <Filter>src\app</Filter>
+    </ClInclude>
+    <ClInclude Include="src\app\Utils.h">
       <Filter>src\app</Filter>
     </ClInclude>
     <ClInclude Include="src\engine\Application.h">
@@ -159,12 +174,6 @@
     <ClInclude Include="vendor\imgui\backends\imgui_impl_vulkan.h">
       <Filter>vendor\imgui\backends</Filter>
     </ClInclude>
-    <ClInclude Include="src\app\AdvancedRenderer\GaussRenderPass.h" />
-    <ClInclude Include="src\app\AdvancedRenderer\ShowImageRenderPass.h" />
-    <ClInclude Include="src\app\AdvancedRenderer\CoordinateSystemRenderPass.h" />
-    <ClInclude Include="src\app\DiskRenderer\DiskRenderer.h" />
-    <ClInclude Include="src\app\DiskRenderer\DiskRenderPass.h" />
-    <ClInclude Include="src\app\Utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\app\AdvancedRenderer\AdvancedRenderer.cpp">
@@ -176,13 +185,25 @@
     <ClCompile Include="src\app\AdvancedRenderer\CompositionRenderPass.cpp">
       <Filter>src\app\AdvancedRenderer</Filter>
     </ClCompile>
+    <ClCompile Include="src\app\AdvancedRenderer\CoordinateSystemRenderPass.cpp">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClCompile>
     <ClCompile Include="src\app\AdvancedRenderer\DepthRenderPass.cpp">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\app\AdvancedRenderer\GaussRenderPass.cpp">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\app\AdvancedRenderer\ShowImageRenderPass.cpp">
       <Filter>src\app\AdvancedRenderer</Filter>
     </ClCompile>
     <ClCompile Include="src\app\Dataset.cpp">
       <Filter>src\app</Filter>
     </ClCompile>
     <ClCompile Include="src\app\Kernel.cpp">
+      <Filter>src\app</Filter>
+    </ClCompile>
+    <ClCompile Include="src\app\Utils.cpp">
       <Filter>src\app</Filter>
     </ClCompile>
     <ClCompile Include="src\engine\Application.cpp">
@@ -269,11 +290,5 @@
     <ClCompile Include="vendor\imgui\backends\imgui_impl_vulkan.cpp">
       <Filter>vendor\imgui\backends</Filter>
     </ClCompile>
-    <ClCompile Include="src\app\AdvancedRenderer\GaussRenderPass.cpp" />
-    <ClCompile Include="src\app\AdvancedRenderer\ShowImageRenderPass.cpp" />
-    <ClCompile Include="src\app\AdvancedRenderer\CoordinateSystemRenderPass.cpp" />
-    <ClCompile Include="src\app\DiskRenderer\DiskRenderer.cpp" />
-    <ClCompile Include="src\app\DiskRenderer\DiskRenderPass.cpp" />
-    <ClCompile Include="src\app\Utils.cpp" />
   </ItemGroup>
 </Project>

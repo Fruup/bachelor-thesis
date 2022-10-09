@@ -48,9 +48,13 @@ public:
 		glm::mat4 InvProjection;
 
 		glm::vec3 CameraPosition;
+		float _unused1;
+
 		glm::vec3 CameraDirection;
+		float _unused2;
 
 		glm::vec3 LightDirection;
+		float _unused3;
 	} Uniforms;
 
 	Buffer UniformBuffer;

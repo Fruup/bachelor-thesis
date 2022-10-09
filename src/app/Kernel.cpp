@@ -3,12 +3,10 @@
 #include "Kernel.h"
 #include "Dataset.h"
 
-#define M_PI 3.14159265358979323846264338327950288
-
 CubicSplineKernel::CubicSplineKernel(float h) : h(h) {}
 
 float CubicSplineKernel::W(const glm::vec3& r) {
-    const float sig_d = 8.0f / (M_PI * h * h * h);
+    const float sig_d = 8.0f / (glm::pi<float>() * h * h * h);
     float q = glm::length(r) / h;
 
     if (0.0 <= q && q <= 0.5) {
@@ -24,7 +22,7 @@ float CubicSplineKernel::W(const glm::vec3& r) {
 }
 
 glm::vec3 CubicSplineKernel::gradW(const glm::vec3& r) {
-    const float sig_d = 8.0f / (M_PI * h * h * h);
+    const float sig_d = 8.0f / (glm::pi<float>() * h * h * h);
     float rn = glm::length(r);
     float q = rn / h;
     glm::vec3 gradQ = r / (rn * h);
