@@ -86,7 +86,7 @@ void main()
 	const vec3 normal = objectNormal;
 	// const vec3 normal = normalize(screenNormal + objectNormal);
 
-	Color = vec4(objectNormal, 1);
+	Color = vec4(normal, 1);
 	return;
 
 #if 1

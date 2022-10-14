@@ -41,8 +41,8 @@ public:
 		}
 
 		// load dataset
-		//Dataset* dataset = new Dataset(datasetPrefix);
-		Dataset* dataset = new Dataset(1.0f, 50000);
+		Dataset* dataset = new Dataset(datasetPrefix);
+		//Dataset* dataset = new Dataset(1.0f, 50000);
 		if (!dataset->Loaded)
 			return false;
 

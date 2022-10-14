@@ -45,7 +45,7 @@ private:
 	void RayMarch();
 	void DrawFullscreenQuad();
 
-	float ComputeDensity(const glm::vec3& x);
+	//void WPCA(const glm::vec3& particle);
 
 public:
 	DepthRenderPass DepthRenderPass;
@@ -61,7 +61,6 @@ public:
 	VertexBuffer VertexBuffer;
 
 	Dataset* Dataset = nullptr;
-	int CurrentFrame = 0;
 
 	uint32_t NumVertices = 0;
 

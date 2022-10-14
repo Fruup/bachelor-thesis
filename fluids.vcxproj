@@ -149,6 +149,8 @@
     <ClInclude Include="src\app\AdvancedRenderer\GaussRenderPass.h" />
     <ClInclude Include="src\app\AdvancedRenderer\ShowImageRenderPass.h" />
     <ClInclude Include="src\app\Dataset.h" />
+    <ClInclude Include="src\app\DiskRenderer\DiskRenderPass.h" />
+    <ClInclude Include="src\app\DiskRenderer\DiskRenderer.h" />
     <ClInclude Include="src\app\Kernel.h" />
     <ClInclude Include="src\app\Utils.h" />
     <ClInclude Include="src\engine\Application.h" />
@@ -191,6 +193,8 @@
     <ClCompile Include="src\app\AdvancedRenderer\GaussRenderPass.cpp" />
     <ClCompile Include="src\app\AdvancedRenderer\ShowImageRenderPass.cpp" />
     <ClCompile Include="src\app\Dataset.cpp" />
+    <ClCompile Include="src\app\DiskRenderer\DiskRenderPass.cpp" />
+    <ClCompile Include="src\app\DiskRenderer\DiskRenderer.cpp" />
     <ClCompile Include="src\app\Kernel.cpp" />
     <ClCompile Include="src\app\Utils.cpp" />
     <ClCompile Include="src\engine\Application.cpp" />

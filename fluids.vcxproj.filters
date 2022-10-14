@@ -13,9 +13,6 @@
     <Filter Include="src\app\DiskRenderer">
       <UniqueIdentifier>{EEF347FB-DA82-D1C4-83A1-E5BF6F0FE26A}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\app\renderer">
-      <UniqueIdentifier>{6377EE13-4F70-0D66-78A2-F2EA64FAEC71}</UniqueIdentifier>
-    </Filter>
     <Filter Include="src\engine">
       <UniqueIdentifier>{32B5D758-1E6D-19A6-8774-F201734BB496}</UniqueIdentifier>
     </Filter>
@@ -77,6 +74,12 @@
     </ClInclude>
     <ClInclude Include="src\app\Dataset.h">
       <Filter>src\app</Filter>
+    </ClInclude>
+    <ClInclude Include="src\app\DiskRenderer\DiskRenderPass.h">
+      <Filter>src\app\DiskRenderer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\app\DiskRenderer\DiskRenderer.h">
+      <Filter>src\app\DiskRenderer</Filter>
     </ClInclude>
     <ClInclude Include="src\app\Kernel.h">
       <Filter>src\app</Filter>
@@ -199,6 +202,12 @@
     </ClCompile>
     <ClCompile Include="src\app\Dataset.cpp">
       <Filter>src\app</Filter>
+    </ClCompile>
+    <ClCompile Include="src\app\DiskRenderer\DiskRenderPass.cpp">
+      <Filter>src\app\DiskRenderer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\app\DiskRenderer\DiskRenderer.cpp">
+      <Filter>src\app\DiskRenderer</Filter>
     </ClCompile>
     <ClCompile Include="src\app\Kernel.cpp">
       <Filter>src\app</Filter>

@@ -15,9 +15,22 @@
 
 // ------------------------------------------------------------------------
 
-static int s_MaxSteps = 32;
-static float s_StepSize = 0.007f;
-static float s_IsoDensity = 400.0f;
+struct VisualizationSettings
+{
+	int Frame;
+
+	int MaxSteps;
+	float StepSize;
+	float IsoDensity;
+
+	bool EnableAnisotropy;
+};
+
+VisualizationSettings g_VisualizationSettings = {
+	.MaxSteps = 32,
+	.StepSize = 0.007f,
+	.IsoDensity = 400.0f,
+};
 
 static float s_ProcessTimer = 0.0f;
 constexpr const float s_ProcessTimerMax = 1.0f;
@@ -34,8 +47,6 @@ bool s_EnableGaussPass = true;
 bool s_EnableCoordinateSystem = true;
 bool s_EnableComposition = true;
 bool s_EnableShowDepth = false;
-
-float s_CorrectionCoeff = 0.1f;
 
 // ------------------------------------------------------------------------
 
@@ -330,14 +341,15 @@ void AdvancedRenderer::RenderUI()
 {
 	ImGui::Begin("Renderer");
 
-	ImGui::SliderInt("Frame", &CurrentFrame, 0, Dataset->Snapshots.size() - 1);
+	ImGui::DragInt("Frame", &g_VisualizationSettings.Frame, 0.125f, 0, Dataset->Snapshots.size() - 1, "%d", ImGuiSliderFlags_AlwaysClamp);
 
-	ImGui::SliderInt("# steps", &s_MaxSteps, 0, 64);
-	ImGui::DragFloat("Step size", &s_StepSize, 0.001f, 0.001f, 1.0f, "%f");
-	ImGui::DragFloat("Iso", &s_IsoDensity, 0.1f, 0.001f, 1000.0f, "%f", ImGuiSliderFlags_Logarithmic);
+	ImGui::SliderInt("# steps", &g_VisualizationSettings.MaxSteps, 0, 64);
+	ImGui::DragFloat("Step size", &g_VisualizationSettings.StepSize, 0.001f, 0.001f, 1.0f, "%f");
+	ImGui::DragFloat("Iso", &g_VisualizationSettings.IsoDensity, 0.1f, 0.001f, 1000.0f, "%f", ImGuiSliderFlags_Logarithmic);
+
+	ImGui::Checkbox("Anisotropy2", &g_VisualizationSettings.EnableAnisotropy);
 
 	ImGui::SliderFloat("Blur spread", &GaussRenderPass.Spread, 1.0f, 32.0f);
-	ImGui::DragFloat("Anisotropy", &s_CorrectionCoeff, 0.001f, 0.0f, 1.0f);
 	
 	// does not make sense because hash grid is not recomputed
 	// ImGui::DragFloat("Particle radius", &Dataset->ParticleRadius, 0.01f, 0.1f, 3.0f);
@@ -404,7 +416,7 @@ void AdvancedRenderer::CollectRenderData()
 	Vertex* target = reinterpret_cast<Vertex*>(
 		Vulkan.Device.mapMemory(VertexBuffer.BufferCPU.Memory, 0, VertexBuffer.BufferCPU.Size));
 
-	for (auto& particle : Dataset->Snapshots[CurrentFrame])
+	for (auto& particle : Dataset->Snapshots[g_VisualizationSettings.Frame])
 	{
 		glm::vec3 x = CameraController.System[0];
 		glm::vec3 y = CameraController.System[1];
@@ -511,7 +523,9 @@ void PCA_Exact(const glm::vec3* data,
 		return;
 	}
 
-	Eigen::Matrix3f S_inv = (solver.eigenvalues().inverse()).asDiagonal();
+	//SPDLOG_INFO("{} {} {}", solver.eigenvalues()[0], solver.eigenvalues()[1], solver.eigenvalues()[2]);
+
+	auto S_inv = solver.eigenvalues().asDiagonal().inverse();
 	Eigen::Matrix3f R = solver.eigenvectors();
 
 	Eigen::Matrix3f G_ = (1.0f / particleRadius) * R * S_inv * R.transpose();
@@ -522,6 +536,8 @@ void PCA_Exact(const glm::vec3* data,
 			G_(1, i),
 			G_(2, i),
 		};
+
+	//SPDLOG_INFO("{} {} {}", G[0][0], G[0][1], G[0][2]);
 }
 
 void PCA(const glm::vec3* data, size_t n, glm::vec3& r)
@@ -560,6 +576,8 @@ void PCA(const glm::vec3* data, size_t n, glm::vec3& r)
 
 void AdvancedRenderer::RayMarch()
 {
+	VisualizationSettings visualizationSettings;
+
 	while (!ShouldTerminateThread)
 	{
 		{
@@ -569,9 +587,8 @@ void AdvancedRenderer::RayMarch()
 
 		PROFILE_FUNCTION();
 
-		const int   MAX_STEPS   = s_MaxSteps;
-		const float STEP_SIZE   = s_StepSize;
-		const float ISO_DENSITY = s_IsoDensity;
+		memcpy(&visualizationSettings, &g_VisualizationSettings, sizeof(visualizationSettings));
+		//visualizationSettings = g_VisualizationSettings;
 
 		const int width = Vulkan.SwapchainExtent.width;
 		const int height = Vulkan.SwapchainExtent.height;
@@ -581,6 +598,12 @@ void AdvancedRenderer::RayMarch()
 		const float* depth = reinterpret_cast<float*>(DepthBuffer.MapCPUMemory());
 		glm::vec4* positions = reinterpret_cast<glm::vec4*>(PositionsBuffer.MapCPUMemory());
 		glm::vec4* normals = reinterpret_cast<glm::vec4*>(NormalsBuffer.MapCPUMemory());
+
+		const auto& particles = Dataset->Snapshots[visualizationSettings.Frame];
+		const glm::mat4 invProjectionView = Camera.GetInvProjectionView();
+		const glm::vec3 cameraPosition = CameraController.Position;
+
+		CubicSplineKernel K(Dataset->ParticleRadius);
 
 		#pragma omp parallel for
 		for (int y = 0; y < height; y++)
@@ -599,53 +622,61 @@ void AdvancedRenderer::RayMarch()
 							   2.0f * float(y) / heightF - 1.0f,
 							   z);
 
-				glm::vec4 worldH = Camera.GetInvProjectionView() * glm::vec4(clip, 1);
+				glm::vec4 worldH = invProjectionView * glm::vec4(clip, 1);
 				//glm::vec3 world = glm::vec3(worldH) / worldH.w;
 
 				glm::vec3 position = glm::vec3(worldH) / worldH.w;
-				glm::vec3 step = STEP_SIZE * glm::normalize(position - CameraController.Position);
+				glm::vec3 step = visualizationSettings.StepSize * glm::normalize(position - cameraPosition);
 
-				for (int i = 0; i < MAX_STEPS; i++)
+				for (int i = 0; i < visualizationSettings.MaxSteps; i++)
 				{
 					// step
 					position += step;
 
-					glm::vec3 pc(0);
+					//glm::vec3 pc(0);
+					//glm::mat3 G;
 					float density = 0.0f;
 
-					CubicSplineKernel K(Dataset->ParticleRadius);
-					const auto& neighbors = Dataset->GetNeighbors(position, CurrentFrame);
+					const auto& neighbors = Dataset->GetNeighbors(position, visualizationSettings.Frame);
 
-#if 1
-					glm::vec3 neighborsMean(0);
-					std::vector<glm::vec3> neighborPositions(neighbors.size());
-					for (size_t i = 0; i < neighborPositions.size(); i++)
+#if 0
+					if (visualizationSettings.EnableAnisotropy)
 					{
-						neighborPositions[i] = Dataset->Snapshots[CurrentFrame][neighbors[i]];
-						neighborsMean += neighborPositions[i];
+						glm::vec3 neighborsMean(0);
+						std::vector<glm::vec3> neighborPositions(neighbors.size());
+						for (size_t i = 0; i < neighborPositions.size(); i++)
+						{
+							neighborPositions[i] = particles[neighbors[i]];
+							neighborsMean += neighborPositions[i];
+						}
+						neighborsMean /= float(neighborPositions.size());
+
+						// normalize mean to 0
+						for (size_t i = 0; i < neighborPositions.size(); i++)
+							neighborPositions[i] -= neighborsMean;
+
+						// find primary axis
+						//PCA(neighborPositions.data(), neighborPositions.size(), pc);
+							PCA_Exact(neighborPositions.data(), neighborPositions.size(), G, Dataset->ParticleRadius);
 					}
-					neighborsMean /= float(neighborPositions.size());
-
-					// normalize mean to 0
-					for (size_t i = 0; i < neighborPositions.size(); i++)
-						neighborPositions[i] -= neighborsMean;
-
-					// find primary axis
-					PCA(neighborPositions.data(), neighborPositions.size(), pc);
 #endif
 
 					// cannot use 'neighborPositions' here as it is shifted to mean 0
 					for (const auto& index : neighbors)
 					{
-						const glm::vec3& neighborPosition = Dataset->Snapshots[CurrentFrame][index];
+						const glm::vec3& neighborPosition = particles[index];
 						const glm::vec3 r = neighborPosition - position;
-						const float correction = glm::dot(r, pc);
+						//const float correction = glm::dot(r, pc);
 
-						density += K.W(r - s_CorrectionCoeff * correction * pc);
-						// density += K.W(r);
+						//density += K.W(r - s_CorrectionCoeff * correction * pc);
+						//density += K.W(r);
+						/*if (visualizationSettings.EnableAnisotropy)
+							density += K.W(glm::determinant(G) * G * r);
+						else*/
+							density += K.W(r);
 					}
 
-					if (density >= ISO_DENSITY)
+					if (density >= visualizationSettings.IsoDensity)
 					{
 						// set position
 						positions[index] = glm::vec4(position, 1);
@@ -656,16 +687,16 @@ void AdvancedRenderer::RayMarch()
 
 						for (const auto& index : neighbors)
 						{
-							const glm::vec3& neighborPosition = Dataset->Snapshots[CurrentFrame][index];
+							const glm::vec3& neighborPosition = particles[index];
 							const glm::vec3 r = neighborPosition - position;
 
 							normal += K.gradW(r);
 						}
 
-						normals[index] = glm::vec4(glm::normalize(normal), 0);
+						normals[index] = glm::vec4(glm::normalize(normal), 1);
 #endif
 
-						i = MAX_STEPS;
+						i = visualizationSettings.MaxSteps;
 					}
 				}
 			}
@@ -689,34 +720,6 @@ void AdvancedRenderer::DrawFullscreenQuad()
 		offset);
 
 	Vulkan.CommandBuffer.draw(3, 1, 0, 0);
-}
-
-float AdvancedRenderer::ComputeDensity(const glm::vec3& x)
-{
-	CubicSplineKernel K(Dataset->ParticleRadius);
-	const auto& neighbors = Dataset->GetNeighbors(x, CurrentFrame);
-
-	std::vector<glm::vec3> neighborPositions(neighbors.size());
-	for (size_t i = 0; i < neighborPositions.size(); i++)
-		neighborPositions[i] = Dataset->Snapshots[CurrentFrame][neighbors[i]];
-
-	glm::vec3 pc;
-
-#if 0
-	PCA(neighborPositions.data(), neighborPositions.size(), pc);
-#endif
-
-	float density = 0.0f;
-	for (const auto& index : neighbors)
-	{
-		const glm::vec3& p = Dataset->Snapshots[CurrentFrame][index];
-		const glm::vec3 r = x - p;
-		const float correction = glm::dot(r, pc);
-
-		density += K.W(r - s_CorrectionCoeff * correction * pc);
-	}
-
-	return density;
 }
 
 // ------------------------------------------------------------------------
