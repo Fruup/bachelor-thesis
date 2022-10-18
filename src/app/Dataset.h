@@ -10,7 +10,7 @@ using Particle = glm::vec3;
 
 class Dataset
 {
-	using Snapshot = std::vector<Particle>;
+	using Frame = std::vector<Particle>;
 
 public:
 	Dataset(const std::string& pathPrefix,
@@ -23,11 +23,17 @@ public:
 	~Dataset();
 
 	std::vector<uint32_t> GetNeighbors(const glm::vec3& position, uint32_t index);
+	std::vector<uint32_t> GetNeighborsExt(const glm::vec3& position, uint32_t index);
 
 	float ParticleRadius;
+	float ParticleRadiusExt;
+	float ParticleRadiusInv;
+	float ParticleRadiusExtInv;
 
-	std::vector<Snapshot> Snapshots;
+	std::vector<Frame> Frames;
+	std::vector<Frame> FramesExt; // a copy of 'Frames' for extended n-search
 	std::vector<CompactNSearch::NeighborhoodSearch> NSearch;
+	std::vector<CompactNSearch::NeighborhoodSearch> NSearchExt;
 
 	size_t MaxParticles = 0;
 	bool Loaded = false;

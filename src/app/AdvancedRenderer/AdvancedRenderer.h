@@ -45,7 +45,10 @@ private:
 	void RayMarch();
 	void DrawFullscreenQuad();
 
-	//void WPCA(const glm::vec3& particle);
+	void WPCA(const glm::vec3& particle,
+			  const glm::vec3* neighborPositions,
+			  uint32_t N,
+			  glm::mat3& G);
 
 public:
 	DepthRenderPass DepthRenderPass;

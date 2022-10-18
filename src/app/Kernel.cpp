@@ -3,11 +3,16 @@
 #include "Kernel.h"
 #include "Dataset.h"
 
-CubicSplineKernel::CubicSplineKernel(float h) : h(h) {}
+CubicSplineKernel::CubicSplineKernel(float h) :
+    h(h),
+    h_inv(1.0f / h),
+    sig_d(8.0f / (glm::pi<float>() * h * h * h))
+{
+}
 
-float CubicSplineKernel::W(const glm::vec3& r) {
-    const float sig_d = 8.0f / (glm::pi<float>() * h * h * h);
-    float q = glm::length(r) / h;
+float CubicSplineKernel::W(const glm::vec3& r)
+{
+    float q = glm::length(r) * h_inv;
 
     if (0.0 <= q && q <= 0.5) {
         return sig_d * (6 * (q * q * q - q * q) + 1);
@@ -21,10 +26,10 @@ float CubicSplineKernel::W(const glm::vec3& r) {
     }
 }
 
-glm::vec3 CubicSplineKernel::gradW(const glm::vec3& r) {
-    const float sig_d = 8.0f / (glm::pi<float>() * h * h * h);
+glm::vec3 CubicSplineKernel::gradW(const glm::vec3& r)
+{
     float rn = glm::length(r);
-    float q = rn / h;
+    float q = rn * h_inv;
     glm::vec3 gradQ = r / (rn * h);
 
     if (0.0 <= q && q <= 0.5) {
@@ -39,14 +44,20 @@ glm::vec3 CubicSplineKernel::gradW(const glm::vec3& r) {
     }
 }
 
-AnisotropicKernel::AnisotropicKernel(float h, ::Dataset& dataset) :
-    h(h), Dataset(dataset)
+// -------------------------------------------------------------------
+
+CubicKernel::CubicKernel(float h) :
+    h(h),
+    h_inv(1.0f / h)
 {
 }
 
-float AnisotropicKernel::W(const glm::vec3& r)
+float CubicKernel::W(const glm::vec3& r)
 {
-    // Do PCA here
-
-    return 0.0f;
+    float d = glm::length(r);
+    
+    if (d >= h) return 0.0f;
+    
+    float k = d * h_inv;
+    return 1.0f - k * k * k;
 }

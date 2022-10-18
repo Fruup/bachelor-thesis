@@ -12,17 +12,21 @@ public:
     glm::vec3 gradW(const glm::vec3& r);
 
 private:
-    float h;
+    const float h;
+    const float h_inv;
+    const float sig_d;
 };
 
-class AnisotropicKernel
+class CubicKernel
 {
 public:
-    explicit AnisotropicKernel(float h, Dataset& dataset);
+    explicit CubicKernel(float h);
 
     float W(const glm::vec3& r);
 
+    //glm::vec3 gradW(const glm::vec3& r);
+
 private:
-    float h;
-    Dataset& Dataset;
+    const float h;
+    const float h_inv;
 };

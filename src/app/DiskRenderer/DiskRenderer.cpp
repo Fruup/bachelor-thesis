@@ -146,7 +146,7 @@ void DiskRenderer::RenderUI()
 {
 	ImGui::Begin("Disk Renderer");
 
-	ImGui::SliderInt("Frame", &CurrentFrame, 0, Dataset->Snapshots.size() - 1);
+	ImGui::SliderInt("Frame", &CurrentFrame, 0, Dataset->Frames.size() - 1);
 
 	ImGui::InputFloat3("Camera", (float*)&CameraController.Position, "%.3f", ImGuiInputTextFlags_ReadOnly);
 
@@ -165,7 +165,7 @@ void DiskRenderer::CollectRenderData()
 	Vertex* target = reinterpret_cast<Vertex*>(
 		Vulkan.Device.mapMemory(VertexBuffer.BufferCPU.Memory, 0, VertexBuffer.BufferCPU.Size));
 
-	for (auto& particle : Dataset->Snapshots[CurrentFrame])
+	for (auto& particle : Dataset->Frames[CurrentFrame])
 	{
 		glm::vec3 x = CameraController.System[0];
 		glm::vec3 y = CameraController.System[1];
@@ -215,7 +215,7 @@ float DiskRenderer::ComputeDensity(const glm::vec3& x)
 	float density = 0.0f;
 	for (const auto& index : neighbors)
 	{
-		const auto& p = Dataset->Snapshots[CurrentFrame][index];
+		const auto& p = Dataset->Frames[CurrentFrame][index];
 		density += K.W(x - glm::vec3(p[0], p[1], p[2]));
 	}
 
