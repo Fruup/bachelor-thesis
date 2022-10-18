@@ -11,25 +11,8 @@
 #include "app/Utils.h"
 
 #include <fstream>
-#include <thread>
 
 // ------------------------------------------------------------------------
-
-struct VisualizationSettings
-{
-	int Frame;
-
-	int MaxSteps;
-	float StepSize;
-	float IsoDensity;
-
-	bool EnableAnisotropy;
-
-	float k_n;
-	float k_r;
-	float k_s;
-	int N_eps;
-};
 
 VisualizationSettings g_VisualizationSettings = {
 	.MaxSteps = 32,
@@ -43,16 +26,10 @@ VisualizationSettings g_VisualizationSettings = {
 	.N_eps = 25,
 };
 
-VisualizationSettings g_VisualizationSettingsThread;
-
 static float s_ProcessTimer = 0.0f;
 constexpr const float s_ProcessTimerMax = 1.0f;
 
-std::thread RayMarchThread;
 std::atomic_bool RayMarchFinished = true;
-std::condition_variable ConditionVariable;
-std::mutex Mutex;
-bool ShouldTerminateThread = false;
 
 bool s_EnableDepthPass = true;
 bool s_EnableRayMarch = false;
@@ -60,42 +37,6 @@ bool s_EnableGaussPass = true;
 bool s_EnableCoordinateSystem = true;
 bool s_EnableComposition = true;
 bool s_EnableShowDepth = false;
-
-#define MAX_NEIGHBORS 4096
-
-// ------------------------------------------------------------------------
-
-template <typename value_t, uint32_t Capacity>
-class StackArray
-{
-public:
-	StackArray() = default;
-	StackArray(uint32_t size): m_Size(size) {}
-
-public:
-	void resize(uint32_t size)
-	{
-		m_Size = size;
-	}
-
-	void push(const value_t& v)
-	{
-#if !PRODUCTION
-		HZ_ASSERT(m_Size < Capacity, "Capacity exceeded!");
-#endif
-
-		m_Data[m_Size++] = v;
-	}
-
-	uint32_t size() { return m_Size; }
-	value_t* data() { return m_Data; }
-
-	value_t& operator [](uint32_t i) { return m_Data[i]; }
-
-private:
-	value_t m_Data[Capacity];
-	uint32_t m_Size = 0;
-};
 
 // ------------------------------------------------------------------------
 
@@ -177,17 +118,11 @@ void AdvancedRenderer::Init(::Dataset* dataset)
 	);
 
 	CameraController.ComputeMatrices();
-
-	// start worker thread
-	RayMarchThread = std::thread(&AdvancedRenderer::RayMarch, this);
 }
 
 void AdvancedRenderer::Exit()
 {
-	ShouldTerminateThread = true;
-	ConditionVariable.notify_all();
-	if (RayMarchThread.joinable())
-		RayMarchThread.join();
+	m_RayMarcher.Exit();
 
 	delete Dataset;
 	VertexBuffer.Destroy();
@@ -319,17 +254,36 @@ void AdvancedRenderer::Render()
 	{
 		RayMarchFinished = false;
 
-		ConditionVariable.notify_all();
+		m_Positions = reinterpret_cast<glm::vec4*>(PositionsBuffer.MapCPUMemory());
+		m_Normals = reinterpret_cast<glm::vec4*>(NormalsBuffer.MapCPUMemory());
+		m_Depth = reinterpret_cast<float*>(DepthBuffer.MapCPUMemory());
+
+		m_RayMarcher.Prepare(g_VisualizationSettings,
+							 CameraController,
+							 Dataset,
+							 m_Positions,
+							 m_Normals,
+							 m_Depth);
+
+		m_RayMarcher.Start();
+	}
+
+	if (!RayMarchFinished && m_RayMarcher.IsDone())
+	{
+		RayMarchFinished = true;
+
+		PositionsBuffer.UnmapCPUMemory();
+		NormalsBuffer.UnmapCPUMemory();
+		DepthBuffer.UnmapCPUMemory();
+
+		s_ProcessTimer = 0.0f;
 	}
 
 	{
 		PROFILE_SCOPE("Post-marching");
 
-		if (RayMarchFinished)
-		{
-			PositionsBuffer.CopyToGPU();
-			NormalsBuffer.CopyToGPU();
-		}
+		PositionsBuffer.CopyToGPU();
+		NormalsBuffer.CopyToGPU();
 
 		Vulkan.CommandBuffer.reset();
 		vk::CommandBufferBeginInfo beginInfo;
@@ -515,250 +469,6 @@ void AdvancedRenderer::DrawDepthPass()
 		offset);
 
 	Vulkan.CommandBuffer.draw(NumVertices, 1, 0, 0);
-}
-
-glm::vec3 eigenToGlm(const Eigen::Vector3f& v)
-{
-	return glm::vec3(v.x(), v.y(), v.z());
-}
-
-Eigen::Vector3f glmToEigen(const glm::vec3& v)
-{
-	return Eigen::Vector3f(v.x, v.y, v.z);
-}
-
-void AdvancedRenderer::WPCA(const glm::vec3& particle,
-							const glm::vec3* neighborPositions,
-							uint32_t N,
-							glm::mat3& G)
-{
-	/* Agenda of this function:
-	* 
-	* - get neighbors in extended neighborhood
-	* - compute weighted mean of neighbors
-	* - construct weighted covariance matrix C of neighbor positions
-	* - compute eigenvalues and -vectors of C
-	* 
-	*/
-
-	// get neighbors
-	/*const auto& particles = Dataset->Frames[g_VisualizationSettings.Frame];
-	auto neighborIndices = Dataset->GetNeighborsExt(particle, g_VisualizationSettings.Frame);
-	const auto N = neighborIndices.size();
-	std::vector<glm::vec3> neighborPositions(N);
-
-	for (size_t i = 0; i < N; i++)
-		neighborPositions[i] = particles[neighborIndices[i]];*/
-
-	// compute weights and mean
-	StackArray<float, MAX_NEIGHBORS> weights(N);
-
-	float weightSum = 0.0f;
-	glm::vec3 mean(0);
-	CubicKernel kernel(Dataset->ParticleRadiusExt);
-
-	for (size_t j = 0; j < N; j++)
-	{
-		const glm::vec3& x_j = neighborPositions[j];
-		glm::vec3 r = x_j - particle;
-
-		float w = kernel.W(r);
-		weights[j] = w;
-
-		weightSum += w;
-		mean += w * x_j;
-	}
-
-	mean /= weightSum;
-
-	// compute C
-	Eigen::Matrix3f C;
-	C.setZero();
-
-	for (size_t j = 0; j < N; j++)
-	{
-		const glm::vec3& x_j = neighborPositions[j];
-
-		Eigen::Vector3f x = glmToEigen(x_j - mean);
-		C += weights[j] * x * x.transpose();
-	}
-
-	C /= weightSum;
-
-	// eigendecomposition
-	Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> solver;
-	solver.computeDirect(C);
-
-	if (solver.info() != Eigen::Success)
-	{
-		SPDLOG_ERROR("Eigen decomposition failed!");
-		return;
-	}
-
-	Eigen::Matrix3f R = solver.eigenvectors();
-	Eigen::Vector3f Sigma;
-
-	// prevent extreme deformations for singular matrices
-	// eq. 15 [YT13]
-	const float k_n = g_VisualizationSettingsThread.k_n;
-	const float k_r = g_VisualizationSettingsThread.k_r;
-	const float k_s = g_VisualizationSettingsThread.k_s;
-	const uint32_t N_eps = g_VisualizationSettingsThread.N_eps;
-
-	if (N <= N_eps)
-		Sigma.setConstant(k_n);
-	else
-	{
-		Sigma = solver.eigenvalues();
-
-		const float MAX = Sigma[0] / k_r;
-		
-		for (size_t k = 1; k < Sigma.size(); k++)
-			Sigma[k] = std::max(Sigma[k], MAX);
-
-		Sigma *= k_s;
-	}
-
-	// leave out first R because of eq. 10 in [000]
-	Eigen::Matrix3f G_Eigen =
-		Dataset->ParticleRadiusInv * R * Sigma.cwiseInverse().asDiagonal() * R.transpose();
-
-	//std::cout << G_Eigen << std::endl;
-
-	G = {
-		eigenToGlm(G_Eigen.col(0)),
-		eigenToGlm(G_Eigen.col(1)),
-		eigenToGlm(G_Eigen.col(2)),
-	};
-}
-
-void AdvancedRenderer::RayMarch()
-{
-	VisualizationSettings& visualizationSettings = g_VisualizationSettingsThread;
-	
-	while (!ShouldTerminateThread)
-	{
-		{
-			std::unique_lock lock(Mutex);
-			ConditionVariable.wait(lock);
-		}
-
-		PROFILE_FUNCTION();
-
-		visualizationSettings = g_VisualizationSettings;
-
-		const int width = Vulkan.SwapchainExtent.width;
-		const int height = Vulkan.SwapchainExtent.height;
-		const float widthInv = 2.0f / float(width);
-		const float heightInv = 2.0f / float(height);
-
-		const float* depth = reinterpret_cast<float*>(DepthBuffer.MapCPUMemory());
-		glm::vec4* positions = reinterpret_cast<glm::vec4*>(PositionsBuffer.MapCPUMemory());
-		glm::vec4* normals = reinterpret_cast<glm::vec4*>(NormalsBuffer.MapCPUMemory());
-
-		const auto& particles = Dataset->Frames[visualizationSettings.Frame];
-		const glm::mat4 invProjectionView = Camera.GetInvProjectionView();
-		const glm::vec3 cameraPosition = CameraController.Position;
-
-		CubicSplineKernel K(Dataset->ParticleRadius);
-
-		#pragma omp parallel for
-		for (int y = 0; y < height; y++)
-		{
-			#pragma omp parallel for
-			for (int x = 0; x < width; x++)
-			{
-				uint32_t index = y * width + x;
-				const float z = depth[index];
-
-				positions[index] = glm::vec4(0);
-				normals[index] = glm::vec4(0);
-				if (z == 1.0f) continue;
-
-				glm::vec3 clip(float(x) * widthInv - 1.0f,
-							   float(y) * heightInv - 1.0f,
-							   z);
-
-				glm::vec4 worldH = invProjectionView * glm::vec4(clip, 1);
-				glm::vec3 position = glm::vec3(worldH) / worldH.w;
-				glm::vec3 step = visualizationSettings.StepSize * glm::normalize(position - cameraPosition);
-
-				for (int i = 0; i < visualizationSettings.MaxSteps; i++)
-				{
-					// step
-					position += step;
-
-					float density = 0.0f;
-
-					const auto& neighbors = Dataset->GetNeighborsExt(position, visualizationSettings.Frame);
-					const auto N = neighbors.size();
-
-					// store neighbor positions on stack
-					constexpr uint32_t Capacity = 4096;
-					HZ_ASSERT(Capacity >= N, "Neighborhood capacity too small!");
-
-					StackArray<glm::vec3, Capacity> neighborPositionsAbsExt;
-					StackArray<glm::vec3, Capacity> neighborPositionsRel;
-					neighborPositionsAbsExt.resize(N);
-
-					for (uint32_t i = 0; i < N; i++)
-					{
-						neighborPositionsAbsExt[i] = particles[neighbors[i]];
-
-						const glm::vec3 r = neighborPositionsAbsExt[i] - position;
-
-						if (glm::dot(r, r) < Dataset->ParticleRadius * Dataset->ParticleRadius)
-							neighborPositionsRel.push(r);
-					}
-
-					// compute G and density
-					glm::mat3 G;
-					float detG;
-
-					if (visualizationSettings.EnableAnisotropy)
-					{
-						WPCA(position, neighborPositionsAbsExt.data(), N, G);
-						detG = glm::determinant(G);
-
-						for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
-							density += detG * K.W(G * neighborPositionsRel[i]);
-					}
-					else
-						for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
-							density += K.W(neighborPositionsRel[i]);
-
-
-					if (density >= visualizationSettings.IsoDensity)
-					{
-						// set position
-						positions[index] = glm::vec4(position, 1);
-
-						// compute object normal
-						glm::vec3 normal(0);
-						
-						if (visualizationSettings.EnableAnisotropy)
-							for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
-								normal += detG * K.gradW(G * neighborPositionsRel[i]);
-						else
-							for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
-								normal += K.gradW(neighborPositionsRel[i]);
-
-						normals[index] = glm::vec4(glm::normalize(normal), 1);
-
-						// break
-						i = visualizationSettings.MaxSteps;
-					}
-				}
-			}
-		}
-
-		NormalsBuffer.UnmapCPUMemory();
-		PositionsBuffer.UnmapCPUMemory();
-		DepthBuffer.UnmapCPUMemory();
-
-		s_ProcessTimer = 0.0f;
-		RayMarchFinished = true;
-	}
 }
 
 void AdvancedRenderer::DrawFullscreenQuad()

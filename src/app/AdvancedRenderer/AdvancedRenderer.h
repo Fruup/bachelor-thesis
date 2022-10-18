@@ -11,6 +11,7 @@
 #include "GaussRenderPass.h"
 #include "ShowImageRenderPass.h"
 #include "CoordinateSystemRenderPass.h"
+#include "RayMarcher.h"
 
 class Event;
 
@@ -42,13 +43,7 @@ private:
 	void CollectRenderData();
 
 	void DrawDepthPass();
-	void RayMarch();
 	void DrawFullscreenQuad();
-
-	void WPCA(const glm::vec3& particle,
-			  const glm::vec3* neighborPositions,
-			  uint32_t N,
-			  glm::mat3& G);
 
 public:
 	DepthRenderPass DepthRenderPass;
@@ -69,4 +64,10 @@ public:
 
 	Camera3D Camera;
 	CameraController3D CameraController;
+
+	RayMarcher m_RayMarcher;
+
+	glm::vec4* m_Positions;
+	glm::vec4* m_Normals;
+	float* m_Depth;
 };

@@ -69,6 +69,9 @@
     <ClInclude Include="src\app\AdvancedRenderer\GaussRenderPass.h">
       <Filter>src\app\AdvancedRenderer</Filter>
     </ClInclude>
+    <ClInclude Include="src\app\AdvancedRenderer\RayMarcher.h">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClInclude>
     <ClInclude Include="src\app\AdvancedRenderer\ShowImageRenderPass.h">
       <Filter>src\app\AdvancedRenderer</Filter>
     </ClInclude>
@@ -82,6 +85,12 @@
       <Filter>src\app\DiskRenderer</Filter>
     </ClInclude>
     <ClInclude Include="src\app\Kernel.h">
+      <Filter>src\app</Filter>
+    </ClInclude>
+    <ClInclude Include="src\app\StackArray.h">
+      <Filter>src\app</Filter>
+    </ClInclude>
+    <ClInclude Include="src\app\ThreadPool.h">
       <Filter>src\app</Filter>
     </ClInclude>
     <ClInclude Include="src\app\Utils.h">
@@ -197,6 +206,9 @@
     <ClCompile Include="src\app\AdvancedRenderer\GaussRenderPass.cpp">
       <Filter>src\app\AdvancedRenderer</Filter>
     </ClCompile>
+    <ClCompile Include="src\app\AdvancedRenderer\RayMarcher.cpp">
+      <Filter>src\app\AdvancedRenderer</Filter>
+    </ClCompile>
     <ClCompile Include="src\app\AdvancedRenderer\ShowImageRenderPass.cpp">
       <Filter>src\app\AdvancedRenderer</Filter>
     </ClCompile>
@@ -210,6 +222,9 @@
       <Filter>src\app\DiskRenderer</Filter>
     </ClCompile>
     <ClCompile Include="src\app\Kernel.cpp">
+      <Filter>src\app</Filter>
+    </ClCompile>
+    <ClCompile Include="src\app\ThreadPool.cpp">
       <Filter>src\app</Filter>
     </ClCompile>
     <ClCompile Include="src\app\Utils.cpp">
