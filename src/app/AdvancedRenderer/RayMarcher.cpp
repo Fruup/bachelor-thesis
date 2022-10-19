@@ -289,7 +289,7 @@ void RayMarcher::PerPixel_Anisotropic(uint32_t index)
 
 			const glm::vec3 r = neighborPositionsAbsExt[i] - position;
 
-			if (glm::dot(r, r) < m_Dataset->ParticleRadius * m_Dataset->ParticleRadius)
+			//if (glm::dot(r, r) < m_Dataset->ParticleRadius * m_Dataset->ParticleRadius)
 				neighborPositionsRel.push(r);
 		}
 
@@ -301,7 +301,7 @@ void RayMarcher::PerPixel_Anisotropic(uint32_t index)
 		const float detG = glm::determinant(G);
 
 		for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
-			density += detG * m_AnisotropicKernel.W(G, detG, neighborPositionsRel[i]);
+			density += m_AnisotropicKernel.W(G, detG, neighborPositionsRel[i]);
 
 		if (density >= m_Settings.IsoDensity)
 		{
@@ -312,7 +312,7 @@ void RayMarcher::PerPixel_Anisotropic(uint32_t index)
 			glm::vec3 normal(0);
 
 			for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
-				normal += detG * m_AnisotropicKernel.gradW(G, detG, neighborPositionsRel[i]);
+				normal += m_AnisotropicKernel.gradW(G, detG, neighborPositionsRel[i]);
 
 			m_Normals[index] = glm::vec4(glm::normalize(normal), 1);
 

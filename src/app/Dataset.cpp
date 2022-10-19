@@ -6,7 +6,7 @@
 
 Dataset::Dataset(const std::string& pathPrefix, const std::string& pathSuffix, int startIndex) :
 	//ParticleRadius(0.025f)
-	ParticleRadius(0.1f),
+	ParticleRadius(0.15f),
 	ParticleRadiusExt(2.0f * ParticleRadius),
 	ParticleRadiusInv(1.0f / ParticleRadius),
 	ParticleRadiusExtInv(1.0f / ParticleRadiusExt)
@@ -48,7 +48,10 @@ Dataset::Dataset(const std::string& pathPrefix, const std::string& pathSuffix, i
 }
 
 Dataset::Dataset(float extent, size_t numParticles) :
-	ParticleRadius(0.1f)
+	ParticleRadius(0.05f),
+	ParticleRadiusExt(5.0f * ParticleRadius),
+	ParticleRadiusInv(1.0f / ParticleRadius),
+	ParticleRadiusExtInv(1.0f / ParticleRadiusExt)
 {
 	Frame s;
 

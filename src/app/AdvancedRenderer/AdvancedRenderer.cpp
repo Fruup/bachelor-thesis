@@ -17,12 +17,12 @@
 VisualizationSettings g_VisualizationSettings = {
 	.MaxSteps = 32,
 	.StepSize = 0.007f,
-	.IsoDensity = 400.0f,
+	.IsoDensity = 1.0f,
 
 	.EnableAnisotropy = false,
 	.k_n = 0.5f,
-	.k_r = 4.0f,
-	.k_s = 1400.0f,
+	.k_r = 1.0f,
+	.k_s = 3000.0f,
 	.N_eps = 25,
 };
 
@@ -363,8 +363,8 @@ void AdvancedRenderer::RenderUI()
 
 		ImGui::DragFloat("k_n", &g_VisualizationSettings.k_n, 0.001f, 0.0f, 2.0f);
 		ImGui::DragFloat("k_r", &g_VisualizationSettings.k_r, 0.001f, 0.0f, 8.0f);
-		ImGui::DragFloat("k_s", &g_VisualizationSettings.k_s, 1.0f, 0.0f, 3000.0f);
-		ImGui::DragInt("N_eps", &g_VisualizationSettings.N_eps, 1.0f, 1, 100);
+		ImGui::DragFloat("k_s", &g_VisualizationSettings.k_s, 1.0f, 0.0f, 6000.0f);
+		ImGui::DragInt("N_eps", &g_VisualizationSettings.N_eps, 1.0f, 1, 500);
 	}
 
 	{
