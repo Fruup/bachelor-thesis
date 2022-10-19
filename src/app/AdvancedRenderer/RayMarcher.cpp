@@ -10,7 +10,7 @@
 
 // ---------------------------------------------------------
 
-#define MAX_NEIGHBORS 4096
+#define MAX_NEIGHBORS 3072
 
 // ---------------------------------------------------------
 
@@ -27,9 +27,7 @@ Eigen::Vector3f glmToEigen(const glm::vec3& v)
 // ---------------------------------------------------------
 
 RayMarcher::RayMarcher() :
-	m_ThreadPool(
-		std::thread::hardware_concurrency() - 1,
-		std::bind(&RayMarcher::Iteration, this, std::placeholders::_1))
+	m_ThreadPool(std::thread::hardware_concurrency() - 1)
 {
 }
 
@@ -60,13 +58,19 @@ void RayMarcher::Prepare(const VisualizationSettings& settings,
 	m_CameraPosition = camera.Position;
 	m_InvProjectionView = camera.Camera.GetInvProjectionView();
 
-	m_Kernel = CubicSplineKernel(m_Dataset->ParticleRadius);
+	m_IsotropicKernel = CubicSplineKernel(m_Dataset->ParticleRadius);
+	m_AnisotropicKernel = AnisotropicKernel(m_Dataset->ParticleRadius);
 }
 
 void RayMarcher::Start()
 {
-	PROFILE_FUNCTION();
-	
+	if (m_Settings.EnableAnisotropy)
+		m_ThreadPool.SetFunction(
+			std::bind(&RayMarcher::PerPixel_Anisotropic, this, std::placeholders::_1));
+	else
+		m_ThreadPool.SetFunction(
+			std::bind(&RayMarcher::PerPixel_Isotropic, this, std::placeholders::_1));
+
 	m_ThreadPool.Start(m_Width * m_Height);
 }
 
@@ -112,7 +116,8 @@ void RayMarcher::WPCA(const glm::vec3& particle,
 		mean += w * x_j;
 	}
 
-	mean /= weightSum;
+	const float invWeightSum = 1.0f / weightSum;
+	mean *= invWeightSum;
 
 	// compute C
 	Eigen::Matrix3f C;
@@ -126,7 +131,7 @@ void RayMarcher::WPCA(const glm::vec3& particle,
 		C += weights[j] * x * x.transpose();
 	}
 
-	C /= weightSum;
+	C *= invWeightSum;
 
 	// eigendecomposition
 	Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> solver;
@@ -175,7 +180,7 @@ void RayMarcher::WPCA(const glm::vec3& particle,
 	};
 }
 
-void RayMarcher::Iteration(uint32_t index)
+void RayMarcher::PerPixel_Isotropic(uint32_t index)
 {
 	const float z = m_Depth[index];
 
@@ -185,20 +190,87 @@ void RayMarcher::Iteration(uint32_t index)
 
 	const auto& particles = m_Dataset->Frames[m_Settings.Frame];
 
-	glm::vec3 clip(float(index % m_Width) * m_TwoWidthInv - 1.0f,
-				   float(index / m_Width) * m_TwoHeightInv - 1.0f,
-				   z);
+	const glm::vec3 clip(float(index % m_Width) * m_TwoWidthInv - 1.0f,
+						 float(index / m_Width) * m_TwoHeightInv - 1.0f,
+						 z);
 
-	glm::vec4 worldH = m_InvProjectionView * glm::vec4(clip, 1);
+	const glm::vec4 worldH = m_InvProjectionView * glm::vec4(clip, 1);
 	glm::vec3 position = glm::vec3(worldH) / worldH.w;
-	glm::vec3 step = m_Settings.StepSize * glm::normalize(position - m_CameraPosition);
+	const glm::vec3 step = m_Settings.StepSize * glm::normalize(position - m_CameraPosition);
 
 	for (int i = 0; i < m_Settings.MaxSteps; i++)
 	{
 		// step
 		position += step;
 
+		const auto& neighbors = m_Dataset->GetNeighborsExt(position, m_Settings.Frame);
+		const auto N = neighbors.size();
+
+		// store neighbor positions on stack
+		constexpr uint32_t Capacity = MAX_NEIGHBORS;
+		HZ_ASSERT(Capacity >= N, "Neighborhood capacity too small!");
+
+		StackArray<glm::vec3, Capacity> neighborPositionsAbsExt;
+		StackArray<glm::vec3, Capacity> neighborPositionsRel;
+		neighborPositionsAbsExt.resize(N);
+
+		for (uint32_t i = 0; i < N; i++)
+		{
+			neighborPositionsAbsExt[i] = particles[neighbors[i]];
+
+			const glm::vec3 r = neighborPositionsAbsExt[i] - position;
+
+			if (glm::dot(r, r) < m_Dataset->ParticleRadius * m_Dataset->ParticleRadius)
+				neighborPositionsRel.push(r);
+		}
+
+		// density
 		float density = 0.0f;
+
+		for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
+			density += m_IsotropicKernel.W(neighborPositionsRel[i]);
+
+		if (density >= m_Settings.IsoDensity)
+		{
+			// set position
+			m_Positions[index] = glm::vec4(position, 1);
+
+			// compute object normal
+			glm::vec3 normal(0);
+
+			for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
+				normal += m_IsotropicKernel.gradW(neighborPositionsRel[i]);
+
+			m_Normals[index] = glm::vec4(glm::normalize(normal), 1);
+
+			// break
+			i = m_Settings.MaxSteps;
+		}
+	}
+}
+
+void RayMarcher::PerPixel_Anisotropic(uint32_t index)
+{
+	const float z = m_Depth[index];
+
+	m_Positions[index] = glm::vec4(0);
+	m_Normals[index] = glm::vec4(0);
+	if (z == 1.0f) return;
+
+	const auto& particles = m_Dataset->Frames[m_Settings.Frame];
+
+	const glm::vec3 clip(float(index % m_Width) * m_TwoWidthInv - 1.0f,
+						 float(index / m_Width) * m_TwoHeightInv - 1.0f,
+						 z);
+
+	const glm::vec4 worldH = m_InvProjectionView * glm::vec4(clip, 1);
+	glm::vec3 position = glm::vec3(worldH) / worldH.w;
+	const glm::vec3 step = m_Settings.StepSize * glm::normalize(position - m_CameraPosition);
+
+	for (int i = 0; i < m_Settings.MaxSteps; i++)
+	{
+		// step
+		position += step;
 
 		const auto& neighbors = m_Dataset->GetNeighborsExt(position, m_Settings.Frame);
 		const auto N = neighbors.size();
@@ -223,19 +295,13 @@ void RayMarcher::Iteration(uint32_t index)
 
 		// compute G and density
 		glm::mat3 G;
-		float detG;
+		float density = 0.0f;
 
-		if (m_Settings.EnableAnisotropy)
-		{
-			WPCA(position, neighborPositionsAbsExt.data(), N, G);
-			detG = glm::determinant(G);
+		WPCA(position, neighborPositionsAbsExt.data(), N, G);
+		const float detG = glm::determinant(G);
 
-			for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
-				density += detG * m_Kernel.W(G * neighborPositionsRel[i]);
-		}
-		else
-			for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
-				density += m_Kernel.W(neighborPositionsRel[i]);
+		for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
+			density += detG * m_AnisotropicKernel.W(G, detG, neighborPositionsRel[i]);
 
 		if (density >= m_Settings.IsoDensity)
 		{
@@ -245,12 +311,8 @@ void RayMarcher::Iteration(uint32_t index)
 			// compute object normal
 			glm::vec3 normal(0);
 
-			if (m_Settings.EnableAnisotropy)
-				for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
-					normal += detG * m_Kernel.gradW(G * neighborPositionsRel[i]);
-			else
-				for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
-					normal += m_Kernel.gradW(neighborPositionsRel[i]);
+			for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
+				normal += detG * m_AnisotropicKernel.gradW(G, detG, neighborPositionsRel[i]);
 
 			m_Normals[index] = glm::vec4(glm::normalize(normal), 1);
 

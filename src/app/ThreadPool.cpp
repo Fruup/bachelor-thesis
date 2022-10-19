@@ -2,8 +2,6 @@
 
 #include "ThreadPool.h"
 
-#include <engine/utils/PerformanceTimer.h>
-
 ThreadPool::ThreadPool(uint32_t numThreads, const F& f) :
 	m_NumThreads(numThreads),
 	m_Function(f),
@@ -29,11 +27,7 @@ void ThreadPool::Start(uint32_t problemSize)
 	m_ProblemSize = problemSize;
 	m_ProblemPointer = 0;
 
-	{
-		PROFILE_SCOPE("Start");
-
-		m_Barrier.arrive();
-	}
+	m_Barrier.arrive();
 }
 
 bool ThreadPool::IsDone()

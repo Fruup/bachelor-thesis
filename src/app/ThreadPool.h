@@ -10,13 +10,15 @@ class ThreadPool
 	using F = std::function<void(uint32_t)>;
 
 public:
-	ThreadPool(uint32_t numThreads, const F& f);
+	ThreadPool(uint32_t numThreads, const F& f = {});
 
 	void Exit();
 
 	void Start(uint32_t problemSize);
 
 	bool IsDone();
+
+	void SetFunction(const F& f) { m_Function = f; }
 
 private:
 	void Worker();

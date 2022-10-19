@@ -68,8 +68,6 @@ project "fluids"
 	language "C++"
 	cppdialect "C++20"
 
-	openmp "On"
-
 	includedirs {
 		"src",
 		"vendor",

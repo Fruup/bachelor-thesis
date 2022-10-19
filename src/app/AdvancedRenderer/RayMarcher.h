@@ -49,12 +49,8 @@ private:
 			  uint32_t N,
 			  glm::mat3& G);
 
-	void Iteration(uint32_t index);
-	void Iteration2(uint32_t from, uint32_t to)
-	{
-		for (uint32_t i = from; i < to; i++)
-			Iteration(i);
-	}
+	void PerPixel_Isotropic(uint32_t index);
+	void PerPixel_Anisotropic(uint32_t index);
 
 private:
 	VisualizationSettings m_Settings;
@@ -72,7 +68,8 @@ private:
 	glm::vec4* m_Normals;
 	float* m_Depth;
 
-	CubicSplineKernel m_Kernel;
+	CubicSplineKernel m_IsotropicKernel;
+	AnisotropicKernel m_AnisotropicKernel;
 
 	//BS::thread_pool m_ThreadPool;
 	ThreadPool m_ThreadPool;
