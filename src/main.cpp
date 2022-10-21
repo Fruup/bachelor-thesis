@@ -40,8 +40,17 @@ public:
 			datasetPrefix = "datasets/" + datasetConfig.as<std::string>() + "/ParticleData_Fluid_";
 		}
 
+		auto frameCount = config["datasetFrameCount"].as<int>(-1);
+		auto particleRadius = config["particleRadius"].as<float>(0.1f);
+		auto particleRadiusMultiplier = config["particleRadiusMultiplier"].as<float>(2.0f);
+
 		// load dataset
-		Dataset* dataset = new Dataset(datasetPrefix);
+		Dataset* dataset = new Dataset(
+			datasetPrefix,
+			".bgeo",
+			particleRadius,
+			particleRadiusMultiplier,
+			frameCount);
 		//Dataset* dataset = new Dataset(1.0f, 50000);
 		//Dataset* dataset = new Dataset(1.0f, 100);
 		if (!dataset->Loaded)

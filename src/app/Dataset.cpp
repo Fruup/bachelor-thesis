@@ -4,19 +4,22 @@
 
 #include "app/Utils.h"
 
-Dataset::Dataset(const std::string& pathPrefix, const std::string& pathSuffix, int startIndex) :
-	//ParticleRadius(0.025f)
-	ParticleRadius(0.1f),
-	ParticleRadiusExt(2.0f * ParticleRadius),
+Dataset::Dataset(const std::string& pathPrefix,
+				 const std::string& pathSuffix,
+				 float particleRadius,
+				 float particleRadiusMultiplier,
+				 int count) :
+	ParticleRadius(particleRadius),
+	ParticleRadiusExt(particleRadiusMultiplier * ParticleRadius),
 	ParticleRadiusInv(1.0f / ParticleRadius),
 	ParticleRadiusExtInv(1.0f / ParticleRadiusExt)
 {
 	std::string path;
-	int i = startIndex;
+	int i = 1;
 
 	SPDLOG_INFO("Reading dataset '{}X{}'...", pathPrefix, pathSuffix);
 
-	while (true)
+	while (count < 0 || i <= count)
 	{
 		path = pathPrefix;
 		path.append(std::to_string(i));
@@ -28,7 +31,11 @@ Dataset::Dataset(const std::string& pathPrefix, const std::string& pathSuffix, i
 			break;
 
 		const auto file = Partio::read(absolutePath.string().c_str());
-		if (!file) return;
+		if (!file)
+		{
+			SPDLOG_ERROR("Failed to load particle file!");
+			return;
+		}
 
 		// read in particle data
 		ReadFile(file);
@@ -161,9 +168,10 @@ void Dataset::BuildCompactNSearch()
 	// sort for quick access
 
 	searchExt.z_sort();
-	searchExt.point_set(psExt).sort_field(Frames.back().data());
+	searchExt.point_set(psExt)
+		.sort_field(Frames.back().data()); // this changes the order of the data in 'FramesExt'
 
-	searchExt.update_point_sets(); // this changes the order of the data in 'FramesExt'
+	searchExt.update_point_sets();
 
 	NSearchExt.push_back(searchExt);
 }

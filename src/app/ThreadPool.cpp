@@ -2,14 +2,14 @@
 
 #include "ThreadPool.h"
 
-ThreadPool::ThreadPool(uint32_t numThreads, const F& f) :
+ThreadPool::ThreadPool(uint32_t numThreads, size_t threadLocalsSize, const F& f) :
 	m_NumThreads(numThreads),
 	m_Function(f),
 	m_Barrier(numThreads + 1)
 {
 	m_Threads.resize(m_NumThreads);
 	for (uint32_t i = 0; i < m_NumThreads; i++)
-		m_Threads[i] = std::thread(&ThreadPool::Worker, this);
+		m_Threads[i] = std::thread(&ThreadPool::Worker, this, malloc(threadLocalsSize));
 }
 
 void ThreadPool::Exit()
@@ -35,7 +35,7 @@ bool ThreadPool::IsDone()
 	return m_ProblemPointer.load() >= m_ProblemSize;
 }
 
-void ThreadPool::Worker()
+void ThreadPool::Worker(void* threadLocals)
 {
 	while (true)
 	{
@@ -48,6 +48,8 @@ void ThreadPool::Worker()
 		// work
 		uint32_t index;
 		while ((index = m_ProblemPointer.fetch_add(1)) < m_ProblemSize - 1)
-			m_Function(index);
+			m_Function(index, threadLocals);
 	}
+
+	free(threadLocals);
 }

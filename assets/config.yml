@@ -10,4 +10,9 @@ display:
 # dataset: "deformables"
 # dataset: "motor"
 # dataset: "simple"
-dataset: "doubledambreak2"
+# dataset: "doubledambreak2"
+dataset: "dambreak"
+
+# datasetFrameCount: 32
+particleRadius: 0.1
+particleRadiusMultiplier: 2.0

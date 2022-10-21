@@ -7,10 +7,10 @@
 
 class ThreadPool
 {
-	using F = std::function<void(uint32_t)>;
+	using F = std::function<void(uint32_t, void*)>;
 
 public:
-	ThreadPool(uint32_t numThreads, const F& f = {});
+	ThreadPool(uint32_t numThreads, size_t threadLocalsSize, const F& f = {});
 
 	void Exit();
 
@@ -21,7 +21,7 @@ public:
 	void SetFunction(const F& f) { m_Function = f; }
 
 private:
-	void Worker();
+	void Worker(void* threadLocals);
 
 private:
 	std::condition_variable m_ConditionVariable;
