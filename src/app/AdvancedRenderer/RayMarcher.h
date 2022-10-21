@@ -43,11 +43,14 @@ public:
 
 	bool IsDone() { return m_ThreadPool.IsDone(); }
 
+	void PerPixel_Anisotropic_Debug(uint32_t index);
+
 private:
 	void WPCA(const glm::vec3& particle,
 			  const glm::vec3* neighborPositions,
 			  uint32_t N,
-			  glm::mat3& G);
+			  glm::mat3& G,
+			  bool verbose = false);
 
 	void PerPixel_Isotropic(uint32_t index);
 	void PerPixel_Anisotropic(uint32_t index);

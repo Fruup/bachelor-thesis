@@ -6,7 +6,7 @@
 
 Dataset::Dataset(const std::string& pathPrefix, const std::string& pathSuffix, int startIndex) :
 	//ParticleRadius(0.025f)
-	ParticleRadius(0.15f),
+	ParticleRadius(0.1f),
 	ParticleRadiusExt(2.0f * ParticleRadius),
 	ParticleRadiusInv(1.0f / ParticleRadius),
 	ParticleRadiusExtInv(1.0f / ParticleRadiusExt)
@@ -27,7 +27,7 @@ Dataset::Dataset(const std::string& pathPrefix, const std::string& pathSuffix, i
 		if (!absolutePath.Exists())
 			break;
 
-		auto file = Partio::read(absolutePath.string().c_str());
+		const auto file = Partio::read(absolutePath.string().c_str());
 		if (!file) return;
 
 		// read in particle data
@@ -48,13 +48,14 @@ Dataset::Dataset(const std::string& pathPrefix, const std::string& pathSuffix, i
 }
 
 Dataset::Dataset(float extent, size_t numParticles) :
-	ParticleRadius(0.05f),
-	ParticleRadiusExt(5.0f * ParticleRadius),
+	ParticleRadius(0.25f),
+	ParticleRadiusExt(2.0f * ParticleRadius),
 	ParticleRadiusInv(1.0f / ParticleRadius),
 	ParticleRadiusExtInv(1.0f / ParticleRadiusExt)
 {
 	Frame s;
 
+#if 1
 	for (size_t i = 0; i < numParticles; i++)
 	{
 		s.push_back({
@@ -63,6 +64,19 @@ Dataset::Dataset(float extent, size_t numParticles) :
 			RandomFloat(-extent, extent),
 		});
 	}
+#else
+	for (size_t x = 0; x < numParticles; x++)
+	{
+		for (size_t z = 0; z < numParticles; z++)
+		{
+			s.push_back({
+				float(x) / float(numParticles) * extent,
+				0.0f,
+				float(z) / float(numParticles) * extent,
+			});
+		}
+	}
+#endif
 
 	Frames.push_back(s);
 
@@ -104,8 +118,7 @@ std::vector<uint32_t> Dataset::GetNeighborsExt(const glm::vec3& position, uint32
 
 void Dataset::ReadFile(Partio::ParticlesDataMutable* file)
 {
-	Partio::ParticleAttribute attrPosition, attrVelocity;
-
+	Partio::ParticleAttribute attrPosition;
 	file->attributeInfo("position", attrPosition);
 
 	Frames.push_back(Frame());

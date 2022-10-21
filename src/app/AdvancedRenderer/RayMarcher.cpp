@@ -24,6 +24,17 @@ Eigen::Vector3f glmToEigen(const glm::vec3& v)
 	return Eigen::Vector3f(v.x, v.y, v.z);
 }
 
+Eigen::Matrix3f glmToEigen(const glm::mat3& m)
+{
+	Eigen::Matrix3f r;
+
+	r.col(0) = glmToEigen(m[0]);
+	r.col(1) = glmToEigen(m[1]);
+	r.col(2) = glmToEigen(m[2]);
+
+	return r;
+}
+
 // ---------------------------------------------------------
 
 RayMarcher::RayMarcher() :
@@ -77,7 +88,8 @@ void RayMarcher::Start()
 void RayMarcher::WPCA(const glm::vec3& particle,
 					  const glm::vec3* neighborPositions,
 					  uint32_t N,
-					  glm::mat3& G)
+					  glm::mat3& G,
+					  bool verbose)
 {
 	/* Agenda of this function:
 	* 
@@ -133,6 +145,11 @@ void RayMarcher::WPCA(const glm::vec3& particle,
 
 	C *= invWeightSum;
 
+	if (verbose)
+	{
+		std::cout << "C:" << std::endl << C << std::endl;
+	}
+
 	// eigendecomposition
 	Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> solver;
 	solver.computeDirect(C);
@@ -143,7 +160,35 @@ void RayMarcher::WPCA(const glm::vec3& particle,
 		return;
 	}
 
-	Eigen::Matrix3f R = solver.eigenvectors();
+	// sort eigenvalues
+	Eigen::Vector3f evalues = solver.eigenvalues();
+	Eigen::Matrix3f evectors = solver.eigenvectors();
+
+	for (uint32_t i = 0; i < 3; i++)
+	{
+		for (uint32_t j = 0; j < 3 - i - 1; j++)
+		{
+			if (evalues[j] < evalues[j + 1])
+			{
+				const float tmp = evalues(j);
+				evalues(j) = evalues(j + 1);
+				evalues(j + 1) = tmp;
+
+				const Eigen::Vector3f tmp2 = evectors.col(j);
+				evectors.col(j) = evectors.col(j + 1);
+				evectors.col(j + 1) = tmp2;
+			}
+		}
+	}
+
+	if (verbose)
+	{
+		std::cout
+			<< "E-Values : \n" << evalues << std::endl
+			<< "E-Vectors: \n" << evectors << std::endl;
+	}
+
+	Eigen::Matrix3f R = evectors;
 	Eigen::Vector3f Sigma;
 
 	// prevent extreme deformations for singular matrices
@@ -157,21 +202,20 @@ void RayMarcher::WPCA(const glm::vec3& particle,
 		Sigma.setConstant(k_n);
 	else
 	{
-		Sigma = solver.eigenvalues();
+		Sigma = evalues;
 
-		const float MAX = Sigma[0] / k_r;
+		const float MINIMUM = Sigma[0] / k_r;
 
 		for (size_t k = 1; k < Sigma.size(); k++)
-			Sigma[k] = std::max(Sigma[k], MAX);
+			Sigma[k] = std::max(Sigma[k], MINIMUM);
 
 		Sigma *= k_s;
 	}
 
-	// leave out first R because of eq. 10 in [000]
+	// ??? leave out first R because of eq. 10 in [000]
+	// CANNOT BE LEFT OUT RIGHT NOW
 	Eigen::Matrix3f G_Eigen =
-		m_Dataset->ParticleRadiusInv * /*R **/ Sigma.cwiseInverse().asDiagonal() * R.transpose();
-
-	//std::cout << G_Eigen << std::endl;
+		m_Dataset->ParticleRadiusInv * R * Sigma.cwiseInverse().asDiagonal() * R.transpose();
 
 	G = {
 		eigenToGlm(G_Eigen.col(0)),
@@ -301,7 +345,11 @@ void RayMarcher::PerPixel_Anisotropic(uint32_t index)
 		const float detG = glm::determinant(G);
 
 		for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
-			density += m_AnisotropicKernel.W(G, detG, neighborPositionsRel[i]);
+		{
+			const float d = m_AnisotropicKernel.W(G, detG, neighborPositionsRel[i]);
+
+			density += d;
+		}
 
 		if (density >= m_Settings.IsoDensity)
 		{
@@ -320,4 +368,92 @@ void RayMarcher::PerPixel_Anisotropic(uint32_t index)
 			i = m_Settings.MaxSteps;
 		}
 	}
+}
+
+void RayMarcher::PerPixel_Anisotropic_Debug(uint32_t index)
+{
+	const float z = m_Depth[index];
+
+	m_Positions[index] = glm::vec4(0);
+	m_Normals[index] = glm::vec4(0);
+	if (z == 1.0f) return;
+
+	const auto& particles = m_Dataset->Frames[m_Settings.Frame];
+
+	const glm::vec3 clip(float(index % m_Width) * m_TwoWidthInv - 1.0f,
+						 float(index / m_Width) * m_TwoHeightInv - 1.0f,
+						 z);
+
+	const glm::vec4 worldH = m_InvProjectionView * glm::vec4(clip, 1);
+	glm::vec3 position = glm::vec3(worldH) / worldH.w;
+	const glm::vec3 step = m_Settings.StepSize * glm::normalize(position - m_CameraPosition);
+
+	for (int i = 0; i < m_Settings.MaxSteps; i++)
+	{
+		// step
+		position += step;
+
+		const auto& neighbors = m_Dataset->GetNeighborsExt(position, m_Settings.Frame);
+		const auto N = neighbors.size();
+
+		// store neighbor positions on stack
+		constexpr uint32_t Capacity = MAX_NEIGHBORS;
+		HZ_ASSERT(Capacity >= N, "Neighborhood capacity too small!");
+
+		StackArray<glm::vec3, Capacity> neighborPositionsAbsExt;
+		StackArray<glm::vec3, Capacity> neighborPositionsRel;
+		neighborPositionsAbsExt.resize(N);
+
+		for (uint32_t i = 0; i < N; i++)
+		{
+			neighborPositionsAbsExt[i] = particles[neighbors[i]];
+
+			const glm::vec3 r = neighborPositionsAbsExt[i] - position;
+
+			//if (glm::dot(r, r) < m_Dataset->ParticleRadius * m_Dataset->ParticleRadius)
+			neighborPositionsRel.push(r);
+		}
+
+		// compute G and density
+		glm::mat3 G;
+		float density = 0.0f;
+
+		WPCA(position, neighborPositionsAbsExt.data(), N, G, true);
+		const float detG = glm::abs(glm::determinant(G));
+
+		{
+			std::cout
+				<< "G:\n"
+				<< glmToEigen(G) << std::endl
+				<< "det(G) = " << detG << std::endl;
+		}
+
+		for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
+		{
+			const float d = m_AnisotropicKernel.W(G, detG, neighborPositionsRel[i]);
+
+			//std::cout << "Adding density: " << d << std::endl;
+
+			density += d;
+		}
+
+		if (density >= m_Settings.IsoDensity)
+		{
+			// set position
+			m_Positions[index] = glm::vec4(position, 1);
+
+			// compute object normal
+			glm::vec3 normal(0);
+
+			for (uint32_t i = 0; i < neighborPositionsRel.size(); i++)
+				normal += m_AnisotropicKernel.gradW(G, detG, neighborPositionsRel[i]);
+
+			m_Normals[index] = glm::vec4(glm::normalize(normal), 1);
+
+			// break
+			i = m_Settings.MaxSteps;
+		}
+	}
+
+	std::cout << "------------------------\n";
 }

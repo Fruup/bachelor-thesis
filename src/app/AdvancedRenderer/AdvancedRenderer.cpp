@@ -6,6 +6,7 @@
 #include <engine/renderer/objects/Command.h>
 #include <engine/events/Event.h>
 #include <engine/utils/PerformanceTimer.h>
+#include <engine/input/Input.h>
 
 #include "app/Kernel.h"
 #include "app/Utils.h"
@@ -15,19 +16,21 @@
 // ------------------------------------------------------------------------
 
 VisualizationSettings g_VisualizationSettings = {
-	.MaxSteps = 32,
-	.StepSize = 0.007f,
+	.MaxSteps = 64,
+	.StepSize = 0.006f,
 	.IsoDensity = 1.0f,
 
 	.EnableAnisotropy = false,
 	.k_n = 0.5f,
-	.k_r = 1.0f,
-	.k_s = 3000.0f,
+	.k_r = 3.0f,
+	.k_s = 2000.0f,
 	.N_eps = 25,
 };
 
 static float s_ProcessTimer = 0.0f;
 constexpr const float s_ProcessTimerMax = 1.0f;
+
+bool g_Autoplay = false;
 
 std::atomic_bool RayMarchFinished = true;
 
@@ -258,6 +261,10 @@ void AdvancedRenderer::Render()
 		m_Normals = reinterpret_cast<glm::vec4*>(NormalsBuffer.MapCPUMemory());
 		m_Depth = reinterpret_cast<float*>(DepthBuffer.MapCPUMemory());
 
+		if (g_Autoplay)
+			g_VisualizationSettings.Frame =
+				std::min(g_VisualizationSettings.Frame + 1, int(Dataset->Frames.size()) - 1);
+
 		m_RayMarcher.Prepare(g_VisualizationSettings,
 							 CameraController,
 							 Dataset,
@@ -343,11 +350,12 @@ void AdvancedRenderer::Render()
 void AdvancedRenderer::RenderUI()
 {
 	ImGui::Begin("Renderer");
-
+	
+	ImGui::Checkbox("Autoplay", &g_Autoplay);
 	ImGui::DragInt("Frame", &g_VisualizationSettings.Frame, 0.125f, 0, Dataset->Frames.size() - 1, "%d", ImGuiSliderFlags_AlwaysClamp);
 
-	ImGui::SliderInt("# steps", &g_VisualizationSettings.MaxSteps, 0, 64);
-	ImGui::DragFloat("Step size", &g_VisualizationSettings.StepSize, 0.001f, 0.001f, 1.0f, "%f");
+	ImGui::SliderInt("# steps", &g_VisualizationSettings.MaxSteps, 0, 128);
+	ImGui::DragFloat("Step size", &g_VisualizationSettings.StepSize, 0.0001f, 0.001f, 0.1f, "%f");
 	ImGui::DragFloat("Iso", &g_VisualizationSettings.IsoDensity, 0.1f, 0.001f, 1000.0f, "%f", ImGuiSliderFlags_Logarithmic);
 
 	ImGui::SliderFloat("Blur spread", &GaussRenderPass.Spread, 1.0f, 32.0f);

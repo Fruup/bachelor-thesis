@@ -1,10 +1,10 @@
 #version 460
 
-// const vec4 DiffuseColor = vec4(52, 125, 235, 255) / 255;
-const vec4 DiffuseColor = vec4(1);
+const vec4 DiffuseColor = vec4(52, 125, 235, 100) / 255;
+// const vec4 DiffuseColor = vec4(1);
 const vec4 SpecularColor = vec4(1, 1, 1, 1);
-const vec4 AmbientColor = vec4(vec3(0.05), 1);
-const float SpecularExponent = 10;
+const vec4 AmbientColor = vec4(vec3(0.05), 0);
+const float SpecularExponent = 100;
 
 layout (std140, binding = 0) uniform UNIFORMS
 {
@@ -86,8 +86,8 @@ void main()
 	const vec3 normal = objectNormal;
 	// const vec3 normal = normalize(screenNormal + objectNormal);
 
-	Color = vec4(normal, 1);
-	return;
+	// Color = vec4(normal, 1);
+	// return;
 
 #if 1
 	const vec3 light = Uniforms.LightDirection;
@@ -95,11 +95,11 @@ void main()
 	// const vec3 light = vec3(0, 0, 1);
 
 	const float diffuse = max(-dot(normal, light), 0);
-	const float specular = pow(max(dot(-light, normalize(reflect(normal, Uniforms.CameraPosition - world))), 0), SpecularExponent);
+	const float specular = pow(max(dot(light, normalize(reflect(normal, Uniforms.CameraPosition - world))), 0), SpecularExponent);
 
 	Color =
 		+ DiffuseColor * diffuse
-		// + SpecularColor * specular
+		+ SpecularColor * specular
 		+ AmbientColor
 		;
 #endif
