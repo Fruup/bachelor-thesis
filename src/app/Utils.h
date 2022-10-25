@@ -1,6 +1,7 @@
 #pragma once
 
-void TransitionImageLayout(vk::Image image,
+void TransitionImageLayout(vk::CommandBuffer& cmd,
+						   vk::Image image,
 						   vk::ImageLayout oldLayout,
 						   vk::ImageLayout newLayout,
 						   vk::AccessFlags srcAccessMask,

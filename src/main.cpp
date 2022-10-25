@@ -51,8 +51,16 @@ public:
 			particleRadius,
 			particleRadiusMultiplier,
 			frameCount);
-		//Dataset* dataset = new Dataset(1.0f, 50000);
+
+		//Dataset* dataset = new Dataset;
+		//Dataset::makeCube(*dataset,
+		//				  .50f,
+		//				  10000,
+		//				  particleRadius,
+		//				  particleRadiusMultiplier);
+
 		//Dataset* dataset = new Dataset(1.0f, 100);
+
 		if (!dataset->Loaded)
 			return false;
 

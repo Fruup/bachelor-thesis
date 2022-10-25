@@ -9,6 +9,8 @@ public:
     CubicSplineKernel(float h);
 
     float W(const glm::vec3& r);
+    float W0() { return sig_d; }
+
     glm::vec3 gradW(const glm::vec3& r);
 
 private:

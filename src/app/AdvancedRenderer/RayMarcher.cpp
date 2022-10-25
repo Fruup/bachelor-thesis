@@ -45,6 +45,22 @@ Eigen::Matrix3f glmToEigen(const glm::mat3& m)
 	return r;
 }
 
+// https://github.com/erich666/GraphicsGems/blob/master/gems/RayBox.c
+
+// https://gist.github.com/DomNomNom/46bb1ce47f68d255fd5d
+glm::vec3 intersectAABB(glm::vec3 rayOrigin, glm::vec3 rayDir, glm::vec3 boxMin, glm::vec3 boxMax) {
+	glm::vec3 tMin = (boxMin - rayOrigin) / rayDir;
+	glm::vec3 tMax = (boxMax - rayOrigin) / rayDir;
+	glm::vec3 t1 = glm::min(tMin, tMax);
+	glm::vec3 t2 = glm::max(tMin, tMax);
+	float tNear = glm::max(glm::max(t1.x, t1.y), t1.z);
+	float tFar = glm::min(glm::min(t2.x, t2.y), t2.z);
+
+	float t = std::max(tNear, tFar);
+
+	return t >= 0.0f ? rayOrigin + rayDir * t : rayOrigin;
+};
+
 // ---------------------------------------------------------
 
 RayMarcher::RayMarcher() :
@@ -244,7 +260,7 @@ void RayMarcher::PerPixel_Isotropic(uint32_t index, void* _locals)
 	m_Normals[index] = glm::vec4(0);
 	if (z == 1.0f) return;
 
-	const auto& particles = m_Dataset->Frames[m_Settings.Frame];
+	auto& frame = m_Dataset->Frames[m_Settings.Frame];
 
 	const glm::vec3 clip(float(index % m_Width) * m_TwoWidthInv - 1.0f,
 						 float(index / m_Width) * m_TwoHeightInv - 1.0f,
@@ -259,20 +275,44 @@ void RayMarcher::PerPixel_Isotropic(uint32_t index, void* _locals)
 		// step
 		position += step;
 
-		const auto& neighbors = m_Dataset->GetNeighborsExt(position, m_Settings.Frame);
+		// check density grid
+		OctreeNode* gridNode = nullptr;
 
-		locals->NumNeighborsExt = std::min(neighbors.size(), size_t(MAX_NEIGHBORS));
-		locals->NumNeighbors = 0;
+		while ((gridNode = frame.QueryDensityGrid(position)) && gridNode->Flag == false)
+		{
+			if (!(
+				position.x >= gridNode->Min.x &&
+				position.x <= gridNode->Max.x &&
+				position.y >= gridNode->Min.y &&
+				position.y <= gridNode->Max.y &&
+				position.z >= gridNode->Min.z &&
+				position.z <= gridNode->Max.z
+				))
+			{
+				SPDLOG_ERROR("{} {} {}\n{} {} {}\n{} {} {}",
+							 position.x, position.y, position.z,
+							 gridNode->Min.x, gridNode->Min.y, gridNode->Min.z,
+							 gridNode->Max.x, gridNode->Max.y, gridNode->Max.z);
+			}
+
+			// skip empty space
+			position = intersectAABB(position, step, gridNode->Min, gridNode->Max) + step;
+			//position += step;
+
+			//SPDLOG_WARN("skip");
+		}
+
+		// find neighbors
+		const std::vector<uint32_t> neighbors =
+			m_Dataset->GetNeighbors(position, m_Settings.Frame);
+
+		locals->NumNeighbors = std::min(neighbors.size(), size_t(MAX_NEIGHBORS));
 
 		// store neighbor positions
-		for (uint32_t i = 0; i < locals->NumNeighborsExt; i++)
+		for (uint32_t i = 0; i < locals->NumNeighbors; i++)
 		{
-			locals->NeighborPositions_AbsExt[i] = particles[neighbors[i]];
-
-			const glm::vec3 r = locals->NeighborPositions_AbsExt[i] - position;
-
-			if (glm::dot(r, r) < m_Dataset->ParticleRadius * m_Dataset->ParticleRadius)
-				locals->NeighborPositions_Rel[locals->NumNeighbors++] = r;
+			const glm::vec3 r = frame.m_Particles[neighbors[i]] - position;
+			locals->NeighborPositions_Rel[i] = r;
 		}
 
 		// density
@@ -310,7 +350,7 @@ void RayMarcher::PerPixel_Anisotropic(uint32_t index, void* _locals)
 	m_Normals[index] = glm::vec4(0);
 	if (z == 1.0f) return;
 
-	const auto& particles = m_Dataset->Frames[m_Settings.Frame];
+	auto& frame = m_Dataset->Frames[m_Settings.Frame];
 
 	const glm::vec3 clip(float(index % m_Width) * m_TwoWidthInv - 1.0f,
 						 float(index / m_Width) * m_TwoHeightInv - 1.0f,
@@ -325,14 +365,24 @@ void RayMarcher::PerPixel_Anisotropic(uint32_t index, void* _locals)
 		// step
 		position += step;
 
-		const auto& neighbors = m_Dataset->GetNeighborsExt(position, m_Settings.Frame);
+#if 1
+		// check density grid
+		OctreeNode* gridNode = nullptr;
+
+		// skip empty space
+		while ((gridNode = frame.QueryDensityGrid(position)) && gridNode->Flag == false)
+			position = intersectAABB(position, step, gridNode->Min, gridNode->Max) + step;
+#endif
+
+		const std::vector<unsigned int> neighbors =
+			m_Dataset->GetNeighborsExt(position, m_Settings.Frame);
 		locals->NumNeighborsExt = std::min(neighbors.size(), size_t(MAX_NEIGHBORS));
 		locals->NumNeighbors = 0;
 
 		// store neighbor positions
 		for (uint32_t i = 0; i < locals->NumNeighborsExt; i++)
 		{
-			locals->NeighborPositions_AbsExt[i] = particles[neighbors[i]];
+			locals->NeighborPositions_AbsExt[i] = frame.m_ParticlesExt[neighbors[i]];
 
 			const glm::vec3 r = locals->NeighborPositions_AbsExt[i] - position;
 

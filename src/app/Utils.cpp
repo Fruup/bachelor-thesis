@@ -5,7 +5,8 @@
 #include <random>
 #include <engine/renderer/Renderer.h>
 
-void TransitionImageLayout(vk::Image image,
+void TransitionImageLayout(vk::CommandBuffer& cmd,
+						   vk::Image image,
 						   vk::ImageLayout oldLayout,
 						   vk::ImageLayout newLayout,
 						   vk::AccessFlags srcAccessMask,
@@ -26,12 +27,12 @@ void TransitionImageLayout(vk::Image image,
 													   0, /* baseArrayLayer */
 													   1  /* layerCount */ ));
 
-	Vulkan.CommandBuffer.pipelineBarrier(srcStageMask,
-										 dstStageMask,
-										 {},
-										 {},
-										 {},
-										 barrier);
+	cmd.pipelineBarrier(srcStageMask,
+						dstStageMask,
+						{},
+						{},
+						{},
+						barrier);
 }
 
 float RandomFloat(float min, float max)

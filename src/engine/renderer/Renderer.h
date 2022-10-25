@@ -8,6 +8,7 @@
 #include <imgui/backends/imgui_impl_glfw.h>
 #include <imgui/backends/imgui_impl_vulkan.h>
 
+#include "objects/Image.h"
 #include "ImGuiRenderPass.h"
 
 struct QueueFamilyIndices
@@ -49,6 +50,8 @@ public:
 
 	static uint32_t FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 	float GetAspect() { return float(SwapchainExtent.width) / float(SwapchainExtent.height); }
+
+	void Screenshot() { m_ShouldScreenshot = true; }
 
 private:
 	bool InitVulkan();
@@ -103,6 +106,15 @@ public:
 	vk::Fence RenderFinishedFence;
 
 	ImGuiRenderPass ImGuiRenderPass;
+
+private:
+	bool m_ShouldScreenshot = false;
+
+	vk::Format m_ScreenshotFormat;
+	vk::Image m_ScreenshotImage;
+	vk::DeviceMemory m_ScreenshotMemory;
+
+	void _Screenshot();
 };
 
 //static Renderer& Vulkan = Renderer::GetInstance();

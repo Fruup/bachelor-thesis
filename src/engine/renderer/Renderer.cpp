@@ -2,12 +2,45 @@
 #include "engine/renderer/Renderer.h"
 #include "engine/renderer/objects/Command.h"
 
+#include <stb_image_write.h>
+
 void GlfwErrorCallback(int error_code, const char* description)
 {
 	SPDLOG_ERROR("GLFW ERROR {}: {}", error_code, description);
 }
 
 static vk::DescriptorPool ImGuiDescriptorPool;
+
+static
+void TransitionImageLayout(vk::CommandBuffer& cmd,
+						   vk::Image image,
+						   vk::ImageLayout oldLayout,
+						   vk::ImageLayout newLayout,
+						   vk::AccessFlags srcAccessMask,
+						   vk::AccessFlags dstAccessMask,
+						   vk::PipelineStageFlags srcStageMask,
+						   vk::PipelineStageFlags dstStageMask)
+{
+	vk::ImageMemoryBarrier barrier;
+	barrier
+		.setOldLayout(oldLayout)
+		.setNewLayout(newLayout)
+		.setSrcAccessMask(srcAccessMask)
+		.setDstAccessMask(dstAccessMask)
+		.setImage(image)
+		.setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor,
+													   0, /* baseMipLevel */
+													   1, /* levelCount */
+													   0, /* baseArrayLayer */
+													   1  /* layerCount */ ));
+
+	cmd.pipelineBarrier(srcStageMask,
+						dstStageMask,
+						{},
+						{},
+						{},
+						barrier);
+}
 
 bool InitImGui()
 {
@@ -206,12 +239,61 @@ bool Renderer::Init(int width, int height, int pixelSize, const char* title)
 		return false;
 	}
 
+	// init screenshot image
+	{
+		m_ScreenshotFormat = vk::Format::eR8G8B8A8Unorm;
+
+		// image
+		vk::ImageCreateInfo info;
+		info.setExtent({ SwapchainExtent.width, SwapchainExtent.height, 1 })
+			.setFormat(m_ScreenshotFormat)
+			.setQueueFamilyIndices(QueueIndices.GraphicsFamily.value())
+			.setImageType(vk::ImageType::e2D)
+			.setInitialLayout(vk::ImageLayout::eUndefined)
+			.setMipLevels(1)
+			.setArrayLayers(1)
+			.setTiling(vk::ImageTiling::eLinear)
+			.setUsage(vk::ImageUsageFlagBits::eTransferDst)
+			.setSharingMode(vk::SharingMode::eExclusive)
+			.setSamples(vk::SampleCountFlagBits::e1);
+
+		m_ScreenshotImage = Device.createImage(info);
+		if (!m_ScreenshotImage)
+		{
+			SPDLOG_ERROR("Screenshot image creation failed!");
+			return false;
+		}
+
+		// memory
+		auto requirements = Device.getImageMemoryRequirements(m_ScreenshotImage);
+
+		vk::MemoryAllocateInfo allocInfo{
+			requirements.size,
+			Renderer::FindMemoryType(
+				requirements.memoryTypeBits,
+				vk::MemoryPropertyFlagBits::eHostCoherent |
+				vk::MemoryPropertyFlagBits::eHostVisible)
+		};
+
+		m_ScreenshotMemory = Device.allocateMemory(allocInfo);
+		if (!m_ScreenshotMemory)
+		{
+			SPDLOG_ERROR("Screenshot memory creation failed!");
+			return false;
+		}
+
+		Device.bindImageMemory(m_ScreenshotImage, m_ScreenshotMemory, 0);
+	}
+
 	return true;
 }
 
 void Renderer::Exit()
 {
 	Device.waitIdle();
+
+	Device.destroyImage(m_ScreenshotImage);
+	Device.freeMemory(m_ScreenshotMemory);
 
 	ImGuiRenderPass.Exit();
 
@@ -241,6 +323,97 @@ void Renderer::Begin()
 	CommandBuffer.begin(beginInfo);
 }
 
+void Renderer::_Screenshot()
+{
+	{
+		OneTimeCommand cmd;
+
+		// transition
+		TransitionImageLayout(cmd,
+							  SwapchainImages[CurrentImageIndex],
+							  vk::ImageLayout::ePresentSrcKHR, // old
+							  vk::ImageLayout::eTransferSrcOptimal, // new
+							  vk::AccessFlagBits::eMemoryRead,
+							  vk::AccessFlagBits::eTransferRead,
+							  vk::PipelineStageFlagBits::eTransfer,
+							  vk::PipelineStageFlagBits::eTransfer);
+
+		TransitionImageLayout(cmd,
+							  m_ScreenshotImage,
+							  vk::ImageLayout::eUndefined, // old
+							  vk::ImageLayout::eTransferDstOptimal, // new
+							  vk::AccessFlagBits::eNone,
+							  vk::AccessFlagBits::eTransferWrite,
+							  vk::PipelineStageFlagBits::eTransfer,
+							  vk::PipelineStageFlagBits::eTransfer);
+
+		// copy
+		vk::ImageCopy region{};
+		region.setSrcSubresource(vk::ImageSubresourceLayers(
+			vk::ImageAspectFlagBits::eColor,
+			0, 0, 1
+		));
+		region.setDstSubresource(vk::ImageSubresourceLayers(
+			vk::ImageAspectFlagBits::eColor,
+			0, 0, 1
+		));
+		region.setExtent({ SwapchainExtent.width, SwapchainExtent.height, 1 });
+
+		cmd->copyImage(SwapchainImages[CurrentImageIndex],
+					   vk::ImageLayout::eTransferSrcOptimal,
+					   m_ScreenshotImage,
+					   vk::ImageLayout::eTransferDstOptimal,
+					   region);
+
+		// transition
+		TransitionImageLayout(cmd,
+							  SwapchainImages[CurrentImageIndex],
+							  vk::ImageLayout::eTransferSrcOptimal, // old
+							  vk::ImageLayout::ePresentSrcKHR, // new
+							  vk::AccessFlagBits::eTransferRead,
+							  vk::AccessFlagBits::eMemoryRead,
+							  vk::PipelineStageFlagBits::eTransfer,
+							  vk::PipelineStageFlagBits::eTransfer);
+
+		TransitionImageLayout(cmd,
+							  m_ScreenshotImage,
+							  vk::ImageLayout::eTransferDstOptimal, // old
+							  vk::ImageLayout::eGeneral, // new
+							  vk::AccessFlagBits::eTransferWrite,
+							  vk::AccessFlagBits::eMemoryRead,
+							  vk::PipelineStageFlagBits::eTransfer,
+							  vk::PipelineStageFlagBits::eTransfer);
+	}
+
+	// map memory
+	uint8_t* data = reinterpret_cast<uint8_t*>(Device.mapMemory(m_ScreenshotMemory, 0, VK_WHOLE_SIZE));
+
+	// swizzle color channels, because swapchain format is likely BGRA
+	for (size_t i = 0; i < SwapchainExtent.width * SwapchainExtent.height; i++)
+	{
+		uint8_t* p = data + 4 * i;
+		auto tmp = p[0];
+		p[0] = p[2];
+		p[2] = tmp;
+	}
+
+	// save
+	static int screenshotNum = 0;
+	char filename[256];
+	sprintf_s(filename, "screenshots/screenshot_%d.bmp", screenshotNum);
+
+	stbi_write_bmp(filename,
+				   SwapchainExtent.width,
+				   SwapchainExtent.height,
+				   4,
+				   data);
+
+	// unmap
+	Device.unmapMemory(m_ScreenshotMemory);
+
+	screenshotNum++;
+}
+
 void Renderer::End()
 {
 	// render imgui pass
@@ -254,6 +427,13 @@ void Renderer::End()
 
 	WaitForRenderingFinished();
 	GraphicsQueue.waitIdle();
+
+	// screenshot
+	if (m_ShouldScreenshot)
+	{
+		_Screenshot();
+		m_ShouldScreenshot = false;
+	}
 
 	// PRESENT!
 	vk::PresentInfoKHR presentInfo;

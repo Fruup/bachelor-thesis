@@ -1,7 +1,9 @@
 display:
   title: "Application"
-  width: 1600
-  height: 900
+  # width: 1600
+  # height: 900
+  width: 1920
+  height: 1080
   pixelSize: 1
   showDemoWindow: false
 
@@ -13,6 +15,6 @@ display:
 # dataset: "doubledambreak2"
 dataset: "dambreak"
 
-# datasetFrameCount: 32
+# datasetFrameCount: 20
 particleRadius: 0.1
 particleRadiusMultiplier: 2.0

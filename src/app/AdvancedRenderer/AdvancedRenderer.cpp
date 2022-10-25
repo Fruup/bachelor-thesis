@@ -16,26 +16,27 @@
 // ------------------------------------------------------------------------
 
 VisualizationSettings g_VisualizationSettings = {
-	.MaxSteps = 64,
-	.StepSize = 0.006f,
+	.MaxSteps = 128,
+	.StepSize = 0.009f,
 	.IsoDensity = 1.0f,
 
-	.EnableAnisotropy = false,
+	.EnableAnisotropy = true,
 	.k_n = 0.5f,
-	.k_r = 3.0f,
+	.k_r = 2.0f,
 	.k_s = 2000.0f,
-	.N_eps = 25,
+	.N_eps = 1,
 };
 
 static float s_ProcessTimer = 0.0f;
 constexpr const float s_ProcessTimerMax = 1.0f;
 
 bool g_Autoplay = false;
+bool g_Recording = false;
 
 std::atomic_bool RayMarchFinished = true;
 
 bool s_EnableDepthPass = true;
-bool s_EnableRayMarch = false;
+bool s_EnableRayMarch = true;
 bool s_EnableGaussPass = true;
 bool s_EnableCoordinateSystem = true;
 bool s_EnableComposition = true;
@@ -261,10 +262,6 @@ void AdvancedRenderer::Render()
 		m_Normals = reinterpret_cast<glm::vec4*>(NormalsBuffer.MapCPUMemory());
 		m_Depth = reinterpret_cast<float*>(DepthBuffer.MapCPUMemory());
 
-		if (g_Autoplay)
-			g_VisualizationSettings.Frame =
-				std::min(g_VisualizationSettings.Frame + 1, int(Dataset->Frames.size()) - 1);
-
 		m_RayMarcher.Prepare(g_VisualizationSettings,
 							 CameraController,
 							 Dataset,
@@ -283,7 +280,21 @@ void AdvancedRenderer::Render()
 		NormalsBuffer.UnmapCPUMemory();
 		DepthBuffer.UnmapCPUMemory();
 
-		s_ProcessTimer = 0.0f;
+		if (g_Autoplay)
+		{
+			g_VisualizationSettings.Frame++;
+
+			if (g_VisualizationSettings.Frame >= Dataset->Frames.size() - 1)
+			{
+				g_VisualizationSettings.Frame = Dataset->Frames.size() - 1;
+				g_Recording = false;
+			}
+		}
+
+		if (g_Recording)
+			Vulkan.Screenshot();
+		
+		s_ProcessTimer = g_Recording ? s_ProcessTimerMax : 0.0f;
 	}
 
 	{
@@ -312,7 +323,8 @@ void AdvancedRenderer::Render()
 											 vk::AccessFlagBits::eShaderRead,
 											 vk::PipelineStageFlagBits::eFragmentShader);
 
-		TransitionImageLayout(Vulkan.SwapchainImages[Vulkan.CurrentImageIndex],
+		TransitionImageLayout(Vulkan.CommandBuffer,
+							  Vulkan.SwapchainImages[Vulkan.CurrentImageIndex],
 							  vk::ImageLayout::eUndefined,
 							  vk::ImageLayout::eColorAttachmentOptimal,
 							  {},
@@ -352,6 +364,10 @@ void AdvancedRenderer::RenderUI()
 	ImGui::Begin("Renderer");
 	
 	ImGui::Checkbox("Autoplay", &g_Autoplay);
+
+	if (ImGui::Checkbox("Recording", &g_Recording) && g_Recording)
+		g_Autoplay = true;
+
 	ImGui::DragInt("Frame", &g_VisualizationSettings.Frame, 0.125f, 0, Dataset->Frames.size() - 1, "%d", ImGuiSliderFlags_AlwaysClamp);
 
 	ImGui::SliderInt("# steps", &g_VisualizationSettings.MaxSteps, 0, 128);
@@ -437,7 +453,7 @@ void AdvancedRenderer::CollectRenderData()
 	Vertex* target = reinterpret_cast<Vertex*>(
 		Vulkan.Device.mapMemory(VertexBuffer.BufferCPU.Memory, 0, VertexBuffer.BufferCPU.Size));
 
-	for (auto& particle : Dataset->Frames[g_VisualizationSettings.Frame])
+	for (auto& particle : Dataset->Frames[g_VisualizationSettings.Frame].m_Particles)
 	{
 		glm::vec3 x = CameraController.System[0];
 		glm::vec3 y = CameraController.System[1];

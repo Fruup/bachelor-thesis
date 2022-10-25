@@ -8,10 +8,10 @@
 #include <engine/utils/PerformanceTimer.h>
 
 #include "app/Kernel.h"
+#include "app/Utils.h"
 
 #include <fstream>
 #include <thread>
-
 
 // ------------------------------------------------------------------------
 
@@ -31,37 +31,6 @@ decltype(DiskRenderer::Vertex::Binding) DiskRenderer::Vertex::Binding = vk::Vert
 	sizeof(DiskRenderer::Vertex), // uint32_t stride
 	vk::VertexInputRate::eVertex, // VertexInputRate inputRate
 };
-
-// ------------------------------------------------------------------------
-
-static void TransitionImageLayout(vk::Image image,
-						   vk::ImageLayout oldLayout,
-						   vk::ImageLayout newLayout,
-						   vk::AccessFlags srcAccessMask,
-						   vk::AccessFlags dstAccessMask,
-						   vk::PipelineStageFlags srcStageMask,
-						   vk::PipelineStageFlags dstStageMask)
-{
-	vk::ImageMemoryBarrier barrier;
-	barrier
-		.setOldLayout(oldLayout)
-		.setNewLayout(newLayout)
-		.setSrcAccessMask(srcAccessMask)
-		.setDstAccessMask(dstAccessMask)
-		.setImage(image)
-		.setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor,
-													   0, /* baseMipLevel */
-													   1, /* levelCount */
-													   0, /* baseArrayLayer */
-													   1  /* layerCount */ ));
-
-	Vulkan.CommandBuffer.pipelineBarrier(srcStageMask,
-										 dstStageMask,
-										 {},
-										 {},
-										 {},
-										 barrier);
-}
 
 // ------------------------------------------------------------------------
 // PUBLIC FUNCTIONS
@@ -126,7 +95,8 @@ void DiskRenderer::Render()
 									vk::PipelineStageFlagBits::eEarlyFragmentTests |
 									vk::PipelineStageFlagBits::eLateFragmentTests);
 
-	TransitionImageLayout(Vulkan.SwapchainImages[Vulkan.CurrentImageIndex],
+	TransitionImageLayout(Vulkan.CommandBuffer,
+						  Vulkan.SwapchainImages[Vulkan.CurrentImageIndex],
 						  vk::ImageLayout::eUndefined,
 						  vk::ImageLayout::eColorAttachmentOptimal,
 						  {},
@@ -165,7 +135,7 @@ void DiskRenderer::CollectRenderData()
 	Vertex* target = reinterpret_cast<Vertex*>(
 		Vulkan.Device.mapMemory(VertexBuffer.BufferCPU.Memory, 0, VertexBuffer.BufferCPU.Size));
 
-	for (auto& particle : Dataset->Frames[CurrentFrame])
+	for (auto& particle : Dataset->Frames[CurrentFrame].m_Particles)
 	{
 		glm::vec3 x = CameraController.System[0];
 		glm::vec3 y = CameraController.System[1];
@@ -215,7 +185,7 @@ float DiskRenderer::ComputeDensity(const glm::vec3& x)
 	float density = 0.0f;
 	for (const auto& index : neighbors)
 	{
-		const auto& p = Dataset->Frames[CurrentFrame][index];
+		const auto& p = Dataset->Frames[CurrentFrame].m_Particles[index];
 		density += K.W(x - glm::vec3(p[0], p[1], p[2]));
 	}
 

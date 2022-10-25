@@ -308,7 +308,7 @@ bool Renderer::CreateSwapChain()
 		.setPresentMode(presentMode)
 		.setImageExtent(extent)
 		.setImageArrayLayers(1)
-		.setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
+		.setImageUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc)
 		.setPreTransform(support.Caps.currentTransform)
 		.setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
 		.setClipped(true);

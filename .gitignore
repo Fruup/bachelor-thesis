@@ -4,6 +4,7 @@ build
 obj
 
 datasets
+screenshots
 
 # shader files
 .temp
