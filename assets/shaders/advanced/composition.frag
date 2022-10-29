@@ -1,14 +1,15 @@
 #version 460
 
-const vec4 DiffuseColor = vec4(120, 185, 255, 200) / 255;
+const vec4 DiffuseColor = vec4(120, 185, 255, 255) / 255;
 // const vec4 DiffuseColor = vec4(1);
-const vec4 SpecularColor = vec4(1, 1, 1, 1);
+const vec4 SpecularColor = 0.5*vec4(1, 1, 1, 1);
 const vec4 AmbientColor = vec4(vec3(0.05), 0);
 const float SpecularExponent = 1000;
 
 layout (std140, binding = 0) uniform UNIFORMS
 {
 	mat4 InvProjection;
+	mat4 InvProjectionView;
 
 	vec3 CameraPosition;
 	vec3 CameraDirection;
@@ -33,6 +34,17 @@ layout (location = 8) in vec2 br;
 
 layout (location = 0) out vec4 Color;
 
+vec4 sampleFloor(vec3 a, vec3 r)
+{
+	const float FLOOR_HEIGHT = -1.0f;
+	vec3 b = a + r * (FLOOR_HEIGHT - a.y) / r.y;
+
+	// 0 or 1
+	const vec2 f = step(mod(b.xz, vec2(2)), vec2(1));
+
+	return vec4(vec3(0.25 + (f.x + f.y) / 4), 0.5);
+}
+
 vec3 position(vec2 uv) { return texture(Positions, uv).xyz; }
 
 vec3 smoothedPosition(vec2 uv)
@@ -42,6 +54,15 @@ vec3 smoothedPosition(vec2 uv)
 		vec4(2 * uv - 1, texture(SmoothedDepth, uv).r, 1);
 
 	return screenH.xyz / screenH.w;
+}
+
+vec3 viewRay()
+{
+	vec4 worldH =
+		Uniforms.InvProjectionView *
+		vec4(2 * UV - 1, 1, 1);
+
+	return worldH.xyz / worldH.w;
 }
 
 // float depth(vec2 uv) { return texture(Positions, uv).z; }
@@ -58,11 +79,12 @@ void main()
 	const vec4 PositionsSampled = texture(Positions, UV);
 
 	if (PositionsSampled.w == 0)
-		discard;
+	{
+		Color = .75 * sampleFloor(Uniforms.CameraPosition, viewRay());
+		return;
+	}
 
-	const vec3 world = PositionsSampled.xyz;
-
-#if 1
+#if 0
 	vec3 dx =
 		+1 * smoothedPosition(tr)
 		+2 * smoothedPosition(mr)
@@ -81,13 +103,23 @@ void main()
 	const vec3 screenNormal = normalize(cross(dx, dy));
 #endif
 
-	const vec3 objectNormal = texture(ObjectNormals, UV).xyz;
+	const vec3 world = PositionsSampled.xyz;
 
+	const vec3 objectNormal = texture(ObjectNormals, UV).xyz;
 	const vec3 normal = objectNormal;
+
 	// const vec3 normal = normalize(screenNormal + objectNormal);
 
 	// Color = vec4(normal, 1);
 	// return;
+
+	const vec3 refracted = refract(normalize(viewRay()), normal, 1.1);
+	const vec4 floorColor = sampleFloor(world, refracted);
+
+	float f = -dot(Uniforms.CameraDirection, normal);
+
+	Color = f * floorColor + (0.15 + 1 - f * f) * DiffuseColor;
+	return;
 
 #if 1
 	// const vec3 light = Uniforms.LightDirection;

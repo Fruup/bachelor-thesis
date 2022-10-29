@@ -19,14 +19,10 @@ layout (location = 0) in FRAGMENT_IN
 void main()
 {
 	// compute spherical offset from UVs
-	const float l = length(2 * Input.UV - 1);
-	if (l > 1)
-	{
-		discard;
-		return;
-	}
+	const float l2 = dot(Input.UV, Input.UV);
+	if (l2 > 1) discard;
 
-	const float sphericalOffset = cos(PI_OVER_TWO * l);
+	const float sphericalOffset = cos(PI_OVER_TWO * sqrt(l2));
 
 	// project view space z coordinate to screen
 	const vec3 pView = Input.ViewPosition - Uniforms.Radius * vec3(0, 0, sphericalOffset);

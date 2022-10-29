@@ -46,6 +46,7 @@ public:
 	struct
 	{
 		glm::mat4 InvProjection;
+		glm::mat4 InvProjectionView;
 
 		glm::vec3 CameraPosition;
 		float _unused1;

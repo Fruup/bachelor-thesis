@@ -466,11 +466,11 @@ void AdvancedRenderer::CollectRenderData()
 		glm::vec3 bottomLeft  = p + R * (-x - y);
 		glm::vec3 bottomRight = p + R * (+x - y);
 
-		target[NumVertices++] = { topLeft, { 0, 0 } };
-		target[NumVertices++] = { bottomLeft, { 0, 1 } };
-		target[NumVertices++] = { topRight, { 1, 0 } };
-		target[NumVertices++] = { topRight, { 1, 0 } };
-		target[NumVertices++] = { bottomLeft, { 0, 1 } };
+		target[NumVertices++] = { topLeft, { -1, -1 } };
+		target[NumVertices++] = { bottomLeft, { -1, 1 } };
+		target[NumVertices++] = { topRight, { 1, -1 } };
+		target[NumVertices++] = { topRight, { 1, -1 } };
+		target[NumVertices++] = { bottomLeft, { -1, 1 } };
 		target[NumVertices++] = { bottomRight, { 1, 1 } };
 	}
 

@@ -313,6 +313,7 @@ void CompositionRenderPass::CreateUniformBuffer()
 void CompositionRenderPass::UpdateUniforms()
 {
 	Uniforms.InvProjection = Renderer.Camera.GetInvProjection();
+	Uniforms.InvProjectionView = Renderer.Camera.GetInvProjectionView();
 
 	Uniforms.CameraPosition = Renderer.CameraController.Position;
 	Uniforms.CameraDirection = Renderer.CameraController.System[2];

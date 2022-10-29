@@ -187,35 +187,40 @@ void RayMarcher::WPCA(const glm::vec3& particle,
 	}
 
 	// sort eigenvalues
-	Eigen::Vector3f evalues = solver.eigenvalues();
-	Eigen::Matrix3f evectors = solver.eigenvectors();
+	Eigen::Vector3f Sigma = solver.eigenvalues();
+	Eigen::Matrix3f R = solver.eigenvectors();
 
+#if 0
+	// No need to sort. Determining maximum eigenvalue is sufficient.
 	for (uint32_t i = 0; i < 3; i++)
 	{
 		for (uint32_t j = 0; j < 3 - i - 1; j++)
 		{
-			if (evalues[j] < evalues[j + 1])
+			if (Sigma[j] < Sigma[j + 1])
 			{
-				const float tmp = evalues(j);
-				evalues(j) = evalues(j + 1);
-				evalues(j + 1) = tmp;
+				const float tmp = Sigma(j);
+				Sigma(j) = Sigma(j + 1);
+				Sigma(j + 1) = tmp;
 
-				const Eigen::Vector3f tmp2 = evectors.col(j);
-				evectors.col(j) = evectors.col(j + 1);
-				evectors.col(j + 1) = tmp2;
+				const Eigen::Vector3f tmp2 = R.col(j);
+				R.col(j) = R.col(j + 1);
+				R.col(j + 1) = tmp2;
 			}
 		}
 	}
+#endif
 
-	if (verbose)
-	{
-		std::cout
-			<< "E-Values : \n" << evalues << std::endl
-			<< "E-Vectors: \n" << evectors << std::endl;
-	}
+#if 0
+	const size_t j = 1;
 
-	Eigen::Matrix3f R = evectors;
-	Eigen::Vector3f Sigma;
+	const float tmp = Sigma(j);
+	Sigma(j) = Sigma(j + 1);
+	Sigma(j + 1) = tmp;
+
+	const Eigen::Vector3f tmp2 = R.col(j);
+	R.col(j) = R.col(j + 1);
+	R.col(j + 1) = tmp2;
+#endif
 
 	// prevent extreme deformations for singular matrices
 	// eq. 15 [YT13]
@@ -228,11 +233,9 @@ void RayMarcher::WPCA(const glm::vec3& particle,
 		Sigma.setConstant(k_n);
 	else
 	{
-		Sigma = evalues;
+		const float MINIMUM = std::max(Sigma[0], std::max(Sigma[1], Sigma[2])) / k_r;
 
-		const float MINIMUM = Sigma[0] / k_r;
-
-		for (size_t k = 1; k < Sigma.size(); k++)
+		for (size_t k = 0; k < Sigma.size(); k++)
 			Sigma[k] = std::max(Sigma[k], MINIMUM);
 
 		Sigma *= k_s;
