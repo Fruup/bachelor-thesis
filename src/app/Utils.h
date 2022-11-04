@@ -2,6 +2,7 @@
 
 void TransitionImageLayout(vk::CommandBuffer& cmd,
 						   vk::Image image,
+						   vk::ImageAspectFlags aspectFlags,
 						   vk::ImageLayout oldLayout,
 						   vk::ImageLayout newLayout,
 						   vk::AccessFlags srcAccessMask,

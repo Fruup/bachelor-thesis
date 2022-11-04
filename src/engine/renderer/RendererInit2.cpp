@@ -4,6 +4,63 @@
 
 #include <set>
 
+// ------------------------------------------------------------------------------
+
+/*
+typedef VkBool32 (VKAPI_PTR *PFN_vkDebugUtilsMessengerCallbackEXT)(
+VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
+VkDebugUtilsMessageTypeFlagsEXT                  messageTypes,
+const VkDebugUtilsMessengerCallbackDataEXT*      pCallbackData,
+void*                                            pUserData);
+*/
+VkBool32 VulkanDebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+							 VkDebugUtilsMessageTypeFlagsEXT messageTypes,
+							 const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+							 void* pUserData)
+{
+	spdlog::level::level_enum level;
+	const char* messageTypeString;
+
+	switch (static_cast<vk::DebugUtilsMessageSeverityFlagBitsEXT>(messageSeverity))
+	{
+		case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
+		case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
+			level = spdlog::level::level_enum::info;
+			break;
+
+		case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
+			level = spdlog::level::level_enum::err;
+			break;
+
+		case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
+			level = spdlog::level::level_enum::warn;
+			break;
+	}
+
+	switch (static_cast<vk::DebugUtilsMessageTypeFlagBitsEXT>(messageTypes))
+	{
+		case vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral:
+			messageTypeString = "GENERAL";
+			break;
+
+		case vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance:
+			messageTypeString = "PERFORMANCE";
+			break;
+
+		case vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation:
+			messageTypeString = "VALIDATION";
+			break;
+	}
+
+	spdlog::log(level,
+				"Vulkan [{}] ({}): {}",
+				messageTypeString,
+				pCallbackData->pMessageIdName,
+				pCallbackData->pMessage);
+
+	return true;
+}
+
 uint32_t Renderer::FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
 {
 	auto memProps = Renderer::GetInstance().PhysicalDevice.getMemoryProperties();
@@ -43,6 +100,8 @@ bool CheckValidationLayerSupport(const std::vector<const char*>& validationLayer
 
 	return true;
 }
+
+// ------------------------------------------------------------------------------
 
 vk::SurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats)
 {
@@ -108,6 +167,7 @@ bool Renderer::IsDeviceSuitable(vk::PhysicalDevice device)
 	features2.setPNext(&vulkan13Features);
 	device.getFeatures2(&features2);
 
+	HZ_ASSERT(vulkan13Features.synchronization2, "Synchronization2 is not supported!");
 	HZ_ASSERT(vulkan13Features.dynamicRendering, "Dynamic rendering is not supported!");
 
 	return (
@@ -115,7 +175,8 @@ bool Renderer::IsDeviceSuitable(vk::PhysicalDevice device)
 		extensionsSupported &&
 		swapChainAdequate &&
 		features.samplerAnisotropy &&
-		vulkan13Features.dynamicRendering
+		vulkan13Features.dynamicRendering &&
+		vulkan13Features.synchronization2
 	);
 }
 
@@ -181,6 +242,7 @@ bool Renderer::CreateInstance()
 
 	std::vector<const char*> instanceExtensions = {
 		VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
+		VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 	};
 
 	for (uint32_t i = 0; i < glfwExtensionCount; i++)
@@ -199,6 +261,23 @@ bool Renderer::CreateInstance()
 
 	// load instance specific functions
 	VULKAN_HPP_DEFAULT_DISPATCHER.init(Instance);
+
+	// create debug messenger
+	vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+	debugCreateInfo
+		.setMessageType(
+			vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+			vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+			vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation
+		)
+		.setPfnUserCallback(VulkanDebugCallback)
+		.setMessageSeverity(
+			vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
+			vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
+			vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning
+		);
+
+	m_DebugMessenger = Instance.createDebugUtilsMessengerEXT(debugCreateInfo);
 
 	return true;
 }
@@ -254,6 +333,14 @@ bool Renderer::CreateLogicalDevice()
 
 	// enable dynamic rendering
 	vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature(true);
+
+	// enable synchronization2
+#if 0
+	vk::PhysicalDeviceSynchronization2Features synchFeatures(true);
+	dynamicRenderingFeature.setPNext(&dynamicRenderingFeature);
+#endif
+
+	// create device
 	createInfo.setPNext(&dynamicRenderingFeature);
 
 	Device = PhysicalDevice.createDevice(createInfo);

@@ -10,8 +10,15 @@
 
 #include "app/Kernel.h"
 #include "app/Utils.h"
+#include "app/VisualizationSettings.h"
+
+#include "cuda/CudaContext.cuh"
+
+#include "app/WindowsSecurityAttributes.h"
 
 #include <fstream>
+
+//#include <dxgi1_2.h>
 
 // ------------------------------------------------------------------------
 
@@ -43,6 +50,33 @@ bool s_EnableComposition = true;
 bool s_EnableShowDepth = false;
 
 // ------------------------------------------------------------------------
+
+HANDLE GetSemaphoreHandle(const vk::Semaphore& semaphore)
+{
+	HANDLE handle;
+
+	VkSemaphoreGetWin32HandleInfoKHR vulkanSemaphoreGetWin32HandleInfoKHR = {};
+	vulkanSemaphoreGetWin32HandleInfoKHR.sType =
+		VK_STRUCTURE_TYPE_SEMAPHORE_GET_WIN32_HANDLE_INFO_KHR;
+	vulkanSemaphoreGetWin32HandleInfoKHR.pNext = NULL;
+	vulkanSemaphoreGetWin32HandleInfoKHR.semaphore = semaphore;
+	vulkanSemaphoreGetWin32HandleInfoKHR.handleType =
+		VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_WIN32_BIT;
+
+	auto getHandle =
+		PFN_vkGetSemaphoreWin32HandleKHR(
+			vkGetDeviceProcAddr(Vulkan.Device, "vkGetSemaphoreWin32HandleKHR"));
+
+	HZ_ASSERT(getHandle != nullptr,
+			  "Failed to load vulkan function 'vkGetSemaphoreWin32HandleKHR'!");
+
+	getHandle(Vulkan.Device, &vulkanSemaphoreGetWin32HandleInfoKHR, &handle);
+
+	HZ_ASSERT(handle != nullptr,
+			  "Failed to get semaphore handle!");
+
+	return handle;
+}
 
 decltype(AdvancedRenderer::Vertex::Attributes) AdvancedRenderer::Vertex::Attributes = {
 	// uint32_t location
@@ -84,7 +118,7 @@ void DumpDataToFile(const char* filename, const void* data, size_t size)
 AdvancedRenderer::AdvancedRenderer() :
 	DepthRenderPass(*this),
 	CompositionRenderPass(*this),
-	GaussRenderPass(*this),
+	//GaussRenderPass(*this),
 	ShowImageRenderPass(*this),
 	CoordinateSystemRenderPass(*this),
 	CameraController(Camera)
@@ -95,20 +129,44 @@ void AdvancedRenderer::Init(::Dataset* dataset)
 {
 	Dataset = dataset;
 
-	DepthBuffer.Init(BilateralBuffer::Depth);
-	SmoothedDepthBuffer.Init(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled,
-							 vk::Format::eR32Sfloat,
-							 vk::ImageAspectFlagBits::eColor);
-	PositionsBuffer.Init(BilateralBuffer::Color);
-	NormalsBuffer.Init(BilateralBuffer::Color);
+	uint32_t width = Vulkan.SwapchainExtent.width;
+	uint32_t height = Vulkan.SwapchainExtent.height;
+
+	/*DepthBuffer.Init(vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled,
+					 vk::Format::eD32Sfloat,
+					 vk::ImageAspectFlagBits::eDepth);*/
+
+	DepthBuffer.Init(vk::Format::eD32Sfloat,
+					 vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled,
+					 width, height);
+
+	SmoothedDepthBuffer.Init(vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eSampled,
+							 vk::Format::eD32Sfloat,
+							 vk::ImageAspectFlagBits::eDepth);
+
+	PositionsBuffer.Init(vk::Format::eR32G32B32A32Sfloat,
+						 vk::ImageUsageFlagBits::eStorage |
+							 vk::ImageUsageFlagBits::eSampled |
+							 vk::ImageUsageFlagBits::eTransferDst |
+							 vk::ImageUsageFlagBits::eTransferSrc,
+						 width, height,
+						 vk::ImageLayout::eTransferDstOptimal);
+
+	NormalsBuffer.Init(vk::Format::eR32G32B32A32Sfloat,
+					   vk::ImageUsageFlagBits::eStorage |
+						 vk::ImageUsageFlagBits::eSampled |
+						 vk::ImageUsageFlagBits::eTransferDst |
+						 vk::ImageUsageFlagBits::eTransferSrc,
+					   width, height,
+					   vk::ImageLayout::eShaderReadOnlyOptimal);
 
 	DepthRenderPass.Init();
 	CompositionRenderPass.Init();
-	GaussRenderPass.Init();
+	//GaussRenderPass.Init();
 	CoordinateSystemRenderPass.Init();
 
-	ShowImageRenderPass.ImageView = DepthBuffer.GPU.ImageView;
-	ShowImageRenderPass.Sampler = DepthBuffer.GPU.Sampler;
+	ShowImageRenderPass.ImageView = DepthBuffer.m_ImageView;
+	ShowImageRenderPass.Sampler = DepthBuffer.m_Sampler;
 	ShowImageRenderPass.Init();
 
 	VertexBuffer.Create(6 * Dataset->MaxParticles * sizeof(Vertex));
@@ -122,18 +180,59 @@ void AdvancedRenderer::Init(::Dataset* dataset)
 	);
 
 	CameraController.ComputeMatrices();
+
+	// init cuda
+	vk::PhysicalDeviceIDProperties deviceIDProps;
+	vk::PhysicalDeviceProperties2 props;
+	props.pNext = &deviceIDProps;
+
+	Vulkan.PhysicalDevice.getProperties2(&props);
+
+	Cuda.Init(Vulkan.Device, deviceIDProps.deviceUUID, sizeof(deviceIDProps.deviceUUID));
+
+	// import image memory
+	auto importedDepthBuffer = Cuda.ImportImageMemory(DepthBuffer);
+	auto importedPositionsBuffer = Cuda.ImportImageMemory(PositionsBuffer);
+	auto importedNormalsBuffer = Cuda.ImportImageMemory(NormalsBuffer);
+
+	m_RayMarcher.Setup(g_VisualizationSettings,
+					   importedDepthBuffer.surfaceObject,
+					   {},
+					   importedPositionsBuffer.deviceSurfaceObject,
+					   importedNormalsBuffer.surfaceObject,
+					   width,
+					   height);
+
+	CreateSemaphores();
+
+	// import semaphores
+	Cuda.ImportSemaphores(GetSemaphoreHandle(m_SemaphoreVK), GetSemaphoreHandle(m_SemaphoreCU));
 }
 
 void AdvancedRenderer::Exit()
 {
-	m_RayMarcher.Exit();
+	//Cuda.Exit();
+
+	//m_RayMarcher.Exit();
+
+	if (m_SemaphoreCU)
+	{
+		Vulkan.Device.destroySemaphore(m_SemaphoreCU);
+		m_SemaphoreCU = nullptr;
+	}
+
+	if (m_SemaphoreVK)
+	{
+		Vulkan.Device.destroySemaphore(m_SemaphoreVK);
+		m_SemaphoreVK = nullptr;
+	}
 
 	delete Dataset;
 	VertexBuffer.Destroy();
 
 	CoordinateSystemRenderPass.Exit();
 	ShowImageRenderPass.Exit();
-	GaussRenderPass.Exit();
+	//GaussRenderPass.Exit();
 	CompositionRenderPass.Exit();
 	DepthRenderPass.Exit();
 
@@ -203,18 +302,60 @@ void AdvancedRenderer::Render()
 
 		if (s_EnableDepthPass)
 		{
-			DepthBuffer.TransitionLayout(vk::ImageLayout::eDepthAttachmentOptimal,
+			TransitionImageLayout(Vulkan.CommandBuffer,
+								  DepthBuffer.m_Image,
+								  vk::ImageAspectFlagBits::eDepth,
+								  vk::ImageLayout::eUndefined,
+								  vk::ImageLayout::eDepthAttachmentOptimal,
+								  {},
+								  vk::AccessFlagBits::eDepthStencilAttachmentRead |
+									vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+								  vk::PipelineStageFlagBits::eTopOfPipe,
+								  vk::PipelineStageFlagBits::eEarlyFragmentTests |
+									vk::PipelineStageFlagBits::eLateFragmentTests);
+
+			/*DepthBuffer.TransitionLayout(vk::ImageLayout::eDepthAttachmentOptimal,
 										 vk::AccessFlagBits::eDepthStencilAttachmentRead |
 										 vk::AccessFlagBits::eDepthStencilAttachmentWrite,
 										 vk::PipelineStageFlagBits::eEarlyFragmentTests |
-										 vk::PipelineStageFlagBits::eLateFragmentTests);
+										 vk::PipelineStageFlagBits::eLateFragmentTests);*/
 
 			DepthRenderPass.Begin();
 			DrawDepthPass();
 			DepthRenderPass.End();
 		}
 
-		if (s_EnableGaussPass)
+		TransitionImageLayout(Vulkan.CommandBuffer,
+							  PositionsBuffer.m_Image,
+							  vk::ImageAspectFlagBits::eColor,
+							  vk::ImageLayout::eUndefined,
+							  vk::ImageLayout::eTransferDstOptimal,
+							  vk::AccessFlagBits::eNone,
+							  vk::AccessFlagBits::eNone,
+							  vk::PipelineStageFlagBits::eAllGraphics,
+							  vk::PipelineStageFlagBits::eAllGraphics);
+
+		/*TransitionImageLayout(Vulkan.CommandBuffer,
+							  NormalsBuffer.m_Image,
+							  vk::ImageAspectFlagBits::eColor,
+							  vk::ImageLayout::eShaderReadOnlyOptimal,
+							  vk::ImageLayout::eColorAttachmentOptimal,
+							  vk::AccessFlagBits::eMemoryWrite,
+							  vk::AccessFlagBits::eMemoryRead,
+							  vk::PipelineStageFlagBits::eBottomOfPipe,
+							  vk::PipelineStageFlagBits::eTopOfPipe);*/
+
+		/*TransitionImageLayout(Vulkan.CommandBuffer,
+							  PositionsBuffer.m_Image,
+							  vk::ImageAspectFlagBits::eColor,
+							  vk::ImageLayout::eUndefined,
+							  vk::ImageLayout::eColorAttachmentOptimal,
+							  {},
+							  vk::AccessFlagBits::eShaderWrite,
+							  vk::PipelineStageFlagBits::eBottomOfPipe,
+							  vk::PipelineStageFlagBits::eAllCommands);*/
+
+		/*if (s_EnableGaussPass)
 		{
 			DepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
 										 vk::AccessFlagBits::eColorAttachmentRead,
@@ -227,104 +368,110 @@ void AdvancedRenderer::Render()
 			GaussRenderPass.Begin();
 			DrawFullscreenQuad();
 			GaussRenderPass.End();
-		}
+		}*/
 
-		DepthBuffer.TransitionLayout(vk::ImageLayout::eTransferSrcOptimal,
-									 vk::AccessFlagBits::eTransferRead,
-									 vk::PipelineStageFlagBits::eTransfer);
+		//DepthBuffer.TransitionLayout(vk::ImageLayout::eTransferSrcOptimal,
+		//							 vk::AccessFlagBits::eTransferRead,
+		//							 vk::PipelineStageFlagBits::eTransfer);
 
-		PositionsBuffer.TransitionLayout(vk::ImageLayout::eTransferDstOptimal,
+		/*PositionsBuffer.TransitionLayout(vk::ImageLayout::eTransferDstOptimal,
 										 vk::AccessFlagBits::eTransferWrite,
 										 vk::PipelineStageFlagBits::eTransfer);
 
 		NormalsBuffer.TransitionLayout(vk::ImageLayout::eTransferDstOptimal,
 									   vk::AccessFlagBits::eTransferWrite,
-									   vk::PipelineStageFlagBits::eTransfer);
+									   vk::PipelineStageFlagBits::eTransfer);*/
 
 		Vulkan.CommandBuffer.end();
 
 		{
 			PROFILE_SCOPE("Submit and wait");
 
-			Vulkan.Submit();
+			Vulkan.Submit({},
+						  {},
+						  { m_SemaphoreVK });
 			Vulkan.WaitForRenderingFinished();
 		}
-
-		if (RayMarchFinished)
-			DepthBuffer.CopyFromGPU();
 	}
 
-	if (RayMarchFinished && s_ProcessTimer >= s_ProcessTimerMax)
+	// launch cuda
 	{
-		RayMarchFinished = false;
+		PROFILE_SCOPE("Cuda");
 
-		m_Positions = reinterpret_cast<glm::vec4*>(PositionsBuffer.MapCPUMemory());
-		m_Normals = reinterpret_cast<glm::vec4*>(NormalsBuffer.MapCPUMemory());
-		m_Depth = reinterpret_cast<float*>(DepthBuffer.MapCPUMemory());
-
-		m_RayMarcher.Prepare(g_VisualizationSettings,
-							 CameraController,
-							 Dataset,
-							 m_Positions,
-							 m_Normals,
-							 m_Depth);
-
-		m_RayMarcher.Start();
-	}
-
-	if (!RayMarchFinished && m_RayMarcher.IsDone())
-	{
-		RayMarchFinished = true;
-
-		PositionsBuffer.UnmapCPUMemory();
-		NormalsBuffer.UnmapCPUMemory();
-		DepthBuffer.UnmapCPUMemory();
-
-		if (g_Autoplay)
-		{
-			g_VisualizationSettings.Frame++;
-
-			if (g_VisualizationSettings.Frame >= Dataset->Frames.size() - 1)
-			{
-				g_VisualizationSettings.Frame = Dataset->Frames.size() - 1;
-				g_Recording = false;
-			}
-		}
-
-		if (g_Recording)
-			Vulkan.Screenshot();
-		
-		s_ProcessTimer = g_Recording ? s_ProcessTimerMax : 0.0f;
+		Cuda.WaitForVulkan();
+		m_RayMarcher.Run();
+		Cuda.SignalVulkan();
 	}
 
 	{
 		PROFILE_SCOPE("Post-marching");
 
-		PositionsBuffer.CopyToGPU();
-		NormalsBuffer.CopyToGPU();
-
 		Vulkan.CommandBuffer.reset();
 		vk::CommandBufferBeginInfo beginInfo;
 		Vulkan.CommandBuffer.begin(beginInfo);
 
-		PositionsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
+		/*PositionsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
 										 vk::AccessFlagBits::eShaderRead,
 										 vk::PipelineStageFlagBits::eFragmentShader);
 
+
 		NormalsBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
 									   vk::AccessFlagBits::eShaderRead,
-									   vk::PipelineStageFlagBits::eFragmentShader);
+									   vk::PipelineStageFlagBits::eFragmentShader);*/
 
-		DepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
+		TransitionImageLayout(Vulkan.CommandBuffer,
+							  DepthBuffer.m_Image,
+							  vk::ImageAspectFlagBits::eDepth,
+							  vk::ImageLayout::eDepthAttachmentOptimal,
+							  vk::ImageLayout::eShaderReadOnlyOptimal,
+							  vk::AccessFlagBits::eDepthStencilAttachmentRead |
+								vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+							  vk::AccessFlagBits::eShaderRead,
+							  vk::PipelineStageFlagBits::eEarlyFragmentTests |
+								vk::PipelineStageFlagBits::eLateFragmentTests,
+							  vk::PipelineStageFlagBits::eFragmentShader);
+
+		TransitionImageLayout(Vulkan.CommandBuffer,
+							  PositionsBuffer.m_Image,
+							  vk::ImageAspectFlagBits::eColor,
+							  vk::ImageLayout::eTransferDstOptimal,
+							  vk::ImageLayout::eShaderReadOnlyOptimal,
+							  vk::AccessFlagBits::eNone,
+							  vk::AccessFlagBits::eNone,
+							  vk::PipelineStageFlagBits::eAllGraphics,
+							  vk::PipelineStageFlagBits::eAllGraphics);
+
+		/*TransitionImageLayout(Vulkan.CommandBuffer,
+							  PositionsBuffer.m_Image,
+							  vk::ImageAspectFlagBits::eColor,
+							  vk::ImageLayout::eUndefined,
+							  vk::ImageLayout::eShaderReadOnlyOptimal,
+							  vk::AccessFlagBits::eMemoryWrite,
+							  vk::AccessFlagBits::eMemoryRead,
+							  vk::PipelineStageFlagBits::eBottomOfPipe,
+							  vk::PipelineStageFlagBits::eTopOfPipe);
+
+		TransitionImageLayout(Vulkan.CommandBuffer,
+							  NormalsBuffer.m_Image,
+							  vk::ImageAspectFlagBits::eColor,
+							  vk::ImageLayout::eUndefined,
+							  vk::ImageLayout::eShaderReadOnlyOptimal,
+							  vk::AccessFlagBits::eMemoryWrite,
+							  vk::AccessFlagBits::eMemoryRead,
+							  vk::PipelineStageFlagBits::eBottomOfPipe,
+							  vk::PipelineStageFlagBits::eTopOfPipe);*/
+
+		/*DepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
 									 vk::AccessFlagBits::eShaderRead,
-									 vk::PipelineStageFlagBits::eFragmentShader);
+									 vk::PipelineStageFlagBits::eFragmentShader);*/
 
-		SmoothedDepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
+		/*SmoothedDepthBuffer.TransitionLayout(vk::ImageLayout::eShaderReadOnlyOptimal,
 											 vk::AccessFlagBits::eShaderRead,
-											 vk::PipelineStageFlagBits::eFragmentShader);
+											 vk::PipelineStageFlagBits::eFragmentShader);*/
 
 		TransitionImageLayout(Vulkan.CommandBuffer,
 							  Vulkan.SwapchainImages[Vulkan.CurrentImageIndex],
+							  vk::ImageAspectFlagBits::eColor,
 							  vk::ImageLayout::eUndefined,
 							  vk::ImageLayout::eColorAttachmentOptimal,
 							  {},
@@ -346,11 +493,11 @@ void AdvancedRenderer::Render()
 			CompositionRenderPass.End();
 		}
 
-		if (s_EnableCoordinateSystem)
+		/*if (s_EnableCoordinateSystem)
 		{
 			CoordinateSystemRenderPass.Begin();
 			CoordinateSystemRenderPass.End();
-		}
+		}*/
 	}
 
 	//   Done in Renderer:
@@ -374,7 +521,7 @@ void AdvancedRenderer::RenderUI()
 	ImGui::DragFloat("Step size", &g_VisualizationSettings.StepSize, 0.0001f, 0.001f, 0.1f, "%f");
 	ImGui::DragFloat("Iso", &g_VisualizationSettings.IsoDensity, 0.1f, 0.001f, 1000.0f, "%f", ImGuiSliderFlags_Logarithmic);
 
-	ImGui::SliderFloat("Blur spread", &GaussRenderPass.Spread, 1.0f, 32.0f);
+	//ImGui::SliderFloat("Blur spread", &GaussRenderPass.Spread, 1.0f, 32.0f);
 	
 	// does not make sense because hash grid is not recomputed
 	// ImGui::DragFloat("Particle radius", &Dataset->ParticleRadius, 0.01f, 0.1f, 3.0f);
@@ -412,8 +559,8 @@ void AdvancedRenderer::RenderUI()
 		
 		if (ImGui::RadioButton("Depth", &radio, 1))
 		{
-			ShowImageRenderPass.ImageView = DepthBuffer.GPU.ImageView;
-			ShowImageRenderPass.Sampler = DepthBuffer.GPU.Sampler;
+			ShowImageRenderPass.ImageView = DepthBuffer.m_ImageView;
+			ShowImageRenderPass.Sampler = DepthBuffer.m_Sampler;
 		}
 
 		if (ImGui::RadioButton("Blurred depth", &radio, 2))
@@ -438,7 +585,7 @@ void AdvancedRenderer::RenderUI()
 
 	ImGui::End();
 
-	GaussRenderPass.RenderUI();
+	//GaussRenderPass.RenderUI();
 }
 
 // ------------------------------------------------------------------------
@@ -504,6 +651,39 @@ void AdvancedRenderer::DrawFullscreenQuad()
 		offset);
 
 	Vulkan.CommandBuffer.draw(3, 1, 0, 0);
+}
+
+void AdvancedRenderer::CreateSemaphores()
+{
+	extern DWORD g_DXResourceAccess;
+
+	// export semaphores
+	WindowsSecurityAttributes winSecurityAttributes;
+
+	VkExportSemaphoreWin32HandleInfoKHR
+		vulkanExportSemaphoreWin32HandleInfoKHR = {};
+	vulkanExportSemaphoreWin32HandleInfoKHR.sType =
+		VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_WIN32_HANDLE_INFO_KHR;
+	vulkanExportSemaphoreWin32HandleInfoKHR.pNext = NULL;
+	vulkanExportSemaphoreWin32HandleInfoKHR.pAttributes =
+		&winSecurityAttributes;
+	vulkanExportSemaphoreWin32HandleInfoKHR.dwAccess = g_DXResourceAccess;
+	vulkanExportSemaphoreWin32HandleInfoKHR.name = 0;
+	
+	vk::ExportSemaphoreCreateInfo vulkanExportSemaphoreCreateInfo;
+	vulkanExportSemaphoreCreateInfo
+		.setPNext(&vulkanExportSemaphoreWin32HandleInfoKHR)
+		.setHandleTypes(vk::ExternalSemaphoreHandleTypeFlagBits::eOpaqueWin32);
+	
+	// create semaphores
+	vk::SemaphoreCreateInfo semaphoreInfo;
+	semaphoreInfo.setPNext(&vulkanExportSemaphoreCreateInfo);
+
+	m_SemaphoreVK = Vulkan.Device.createSemaphore(semaphoreInfo);
+	m_SemaphoreCU = Vulkan.Device.createSemaphore(semaphoreInfo);
+
+	if (!m_SemaphoreVK || !m_SemaphoreCU)
+		SPDLOG_ERROR("Failed to create semaphores!");
 }
 
 // ------------------------------------------------------------------------

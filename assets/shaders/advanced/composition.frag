@@ -18,19 +18,19 @@ layout (std140, binding = 0) uniform UNIFORMS
 } Uniforms;
 
 layout (binding = 1) uniform sampler2D Positions;
-layout (binding = 3) uniform sampler2D SmoothedDepth;
+// layout (binding = 3) uniform sampler2D SmoothedDepth;
 layout (binding = 4) uniform sampler2D ObjectNormals;
 // layout (binding = 3) uniform sampler2D Depth;
 
 layout (location = 0) in vec2 UV;
-layout (location = 1) in vec2 tl;
-layout (location = 2) in vec2 tm;
-layout (location = 3) in vec2 tr;
-layout (location = 4) in vec2 ml;
-layout (location = 5) in vec2 mr;
-layout (location = 6) in vec2 bl;
-layout (location = 7) in vec2 bm;
-layout (location = 8) in vec2 br;
+// layout (location = 1) in vec2 tl;
+// layout (location = 2) in vec2 tm;
+// layout (location = 3) in vec2 tr;
+// layout (location = 4) in vec2 ml;
+// layout (location = 5) in vec2 mr;
+// layout (location = 6) in vec2 bl;
+// layout (location = 7) in vec2 bm;
+// layout (location = 8) in vec2 br;
 
 layout (location = 0) out vec4 Color;
 
@@ -47,14 +47,14 @@ vec4 sampleFloor(vec3 a, vec3 r)
 
 vec3 position(vec2 uv) { return texture(Positions, uv).xyz; }
 
-vec3 smoothedPosition(vec2 uv)
-{
-	vec4 screenH =
-		Uniforms.InvProjection *
-		vec4(2 * uv - 1, texture(SmoothedDepth, uv).r, 1);
+// vec3 smoothedPosition(vec2 uv)
+// {
+// 	vec4 screenH =
+// 		Uniforms.InvProjection *
+// 		vec4(2 * uv - 1, texture(SmoothedDepth, uv).r, 1);
 
-	return screenH.xyz / screenH.w;
-}
+// 	return screenH.xyz / screenH.w;
+// }
 
 vec3 viewRay()
 {
@@ -78,9 +78,16 @@ void main()
 
 	const vec4 PositionsSampled = texture(Positions, UV);
 
+	Color = vec4(1000*PositionsSampled.xyz, 1);
+	return;
+
 	if (PositionsSampled.w == 0)
 	{
-		Color = .75 * sampleFloor(Uniforms.CameraPosition, viewRay());
+		vec3 ray = viewRay();
+
+		if (ray.y > 0.1) Color = vec4(vec3(.2), 1);
+		else Color = .75 * sampleFloor(Uniforms.CameraPosition, ray);
+
 		return;
 	}
 
@@ -136,63 +143,3 @@ void main()
 		;
 #endif
 }
-
-#if 0
-void main()
-{
-	// TODO: check if depth buffer is 1 here
-	//if (ClipSpace.z == 1)
-	//	discard;
-
-	// TODO: This is in view space. Convert to world space.
-	vec3 world = Positions.xyz;
-	float z = world.z;
-
-	vec3 _n = normalize(cross(
-		dFdx(world),
-		dFdy(world)
-	));
-
-	vec3 normal = vec3(_n.x, _n.y, _n.z);
-
-	// Color = vec4(normal, 1);
-	// return;
-
-	const float diffuse = dot(Uniforms.LightDirection, normal);
-
-	const float specular = -dot(
-		normalize(Uniforms.CameraPosition - world),
-		reflect(Uniforms.LightDirection, normal));
-
-	Color =
-		max(0, diffuse) * DiffuseColor 
-		;
-
-	//Color = vec4(1, 0, 0, 1);
-	//Color = vec4(ClipSpace.z, 0, 0, 1);
-
-	// Color = vec4(1, 0, 0, 1);
-	// Color = vec4(subpassLoad(Position).xyz, 1);
-	// Color = vec4(vec3(subpassLoad(Depth).r), 1);
-}
-#endif
-
-#if 0
-	const mat3 K = (1/8) * mat3(
-		vec3(-1, 0, +1),
-		vec3(-2, 0, +2),
-		vec3(-1, 0, +1)
-	);
-
-	const float dzdx = (1 / delta) * (
-		K[0][0] * depth(tl) + K[1][0] * depth(tm) + K[2][0] * depth(tr) +
-		K[0][1] * depth(ml) + K[1][1] * depth(UV) + K[2][1] * depth(mr) +
-		K[0][2] * depth(bl) + K[1][2] * depth(bm) + K[2][2] * depth(br)
-	);
-
-	const float dzdy = (1 / delta) * (
-		K[0][0] * depth(tl) + K[0][1] * depth(tm) + K[0][2] * depth(tr) +
-		K[1][0] * depth(ml) + K[1][1] * depth(UV) + K[1][2] * depth(mr) +
-		K[2][0] * depth(bl) + K[2][1] * depth(bm) + K[2][2] * depth(br)
-	);
-#endif

@@ -46,6 +46,10 @@ public:
 	void RenderImGui();
 
 	void Submit(bool wait = false, bool signal = false);
+	void Submit(const std::vector<vk::Semaphore>& waitSemaphores,
+				const std::vector<vk::PipelineStageFlags>& waitStages,
+				const std::vector<vk::Semaphore>& signalSemaphores);
+
 	void WaitForRenderingFinished();
 
 	static uint32_t FindMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
@@ -83,6 +87,8 @@ public:
 	vk::Instance Instance;
 	vk::PhysicalDevice PhysicalDevice;
 	vk::Device Device;
+
+	vk::DebugUtilsMessengerEXT m_DebugMessenger;
 
 	QueueFamilyIndices QueueIndices;
 	vk::Queue GraphicsQueue, PresentationQueue;

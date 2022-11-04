@@ -97,6 +97,7 @@ void DiskRenderer::Render()
 
 	TransitionImageLayout(Vulkan.CommandBuffer,
 						  Vulkan.SwapchainImages[Vulkan.CurrentImageIndex],
+						  vk::ImageAspectFlagBits::eColor,
 						  vk::ImageLayout::eUndefined,
 						  vk::ImageLayout::eColorAttachmentOptimal,
 						  {},

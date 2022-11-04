@@ -379,9 +379,9 @@ void GaussRenderPass::UpdateDescriptorSet()
 	// depth
 	vk::DescriptorImageInfo depthImageInfo;
 	depthImageInfo
-		.setImageView(Renderer.DepthBuffer.GPU.ImageView)
+		.setImageView(Renderer.DepthBuffer.m_ImageView)
 		.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-		.setSampler(Renderer.DepthBuffer.GPU.Sampler);
+		.setSampler(Renderer.DepthBuffer.m_Sampler);
 
 	vk::WriteDescriptorSet writeDepthSampler;
 	writeDepthSampler

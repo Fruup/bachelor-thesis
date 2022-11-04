@@ -9,8 +9,6 @@
 
 // --------------------------------------------------------------------
 
-//auto& Vulkan = Renderer::GetInstance();
-
 constexpr std::array<float, 4> ClearColor = {
 	0.1f, 0.1f, 0.1f, 1.0f,
 };
@@ -59,6 +57,8 @@ void CompositionRenderPass::Begin()
 {
 	// update uniforms
 	UpdateUniforms();
+
+	UpdateDescriptorSets();
 
 	// begin rendering
 	vk::RenderingAttachmentInfo screenAttachment;
@@ -370,9 +370,9 @@ void CompositionRenderPass::UpdateDescriptorSets()
 	// positions
 	vk::DescriptorImageInfo positionsImageInfo;
 	positionsImageInfo
-		.setImageView(Renderer.PositionsBuffer.GPU.ImageView)
+		.setImageView(Renderer.PositionsBuffer.m_ImageView)
 		.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-		.setSampler(Renderer.PositionsBuffer.GPU.Sampler);
+		.setSampler(Renderer.PositionsBuffer.m_Sampler);
 
 	vk::WriteDescriptorSet writePositions;
 	writePositions
@@ -386,9 +386,9 @@ void CompositionRenderPass::UpdateDescriptorSets()
 	// object normals
 	vk::DescriptorImageInfo normalsImageInfo;
 	normalsImageInfo
-		.setImageView(Renderer.NormalsBuffer.GPU.ImageView)
+		.setImageView(Renderer.NormalsBuffer.m_ImageView)
 		.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-		.setSampler(Renderer.NormalsBuffer.GPU.Sampler);
+		.setSampler(Renderer.NormalsBuffer.m_Sampler);
 
 	vk::WriteDescriptorSet writeNormals;
 	writeNormals

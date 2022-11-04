@@ -195,6 +195,14 @@ bool Renderer::InitVulkan()
 		VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
 		VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
 
+		VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+
+		VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
+		VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME,
+
+		VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
+		VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME,
+
 		VK_KHR_MAINTENANCE2_EXTENSION_NAME,
 		VK_KHR_MULTIVIEW_EXTENSION_NAME,
 	};
@@ -240,6 +248,7 @@ void Renderer::ExitVulkan()
 	Command::Exit();
 	Device.destroySwapchainKHR(Swapchain);
 	Device.destroy();
+	if (m_DebugMessenger) Instance.destroyDebugUtilsMessengerEXT(m_DebugMessenger);
 	Instance.destroySurfaceKHR(Surface);
 	Instance.destroy();
 }

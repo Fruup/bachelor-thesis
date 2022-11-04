@@ -7,6 +7,7 @@
 
 void TransitionImageLayout(vk::CommandBuffer& cmd,
 						   vk::Image image,
+						   vk::ImageAspectFlags aspectFlags,
 						   vk::ImageLayout oldLayout,
 						   vk::ImageLayout newLayout,
 						   vk::AccessFlags srcAccessMask,
@@ -21,7 +22,7 @@ void TransitionImageLayout(vk::CommandBuffer& cmd,
 		.setSrcAccessMask(srcAccessMask)
 		.setDstAccessMask(dstAccessMask)
 		.setImage(image)
-		.setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor,
+		.setSubresourceRange(vk::ImageSubresourceRange(aspectFlags,
 													   0, /* baseMipLevel */
 													   1, /* levelCount */
 													   0, /* baseArrayLayer */

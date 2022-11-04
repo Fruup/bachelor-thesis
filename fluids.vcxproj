@@ -41,6 +41,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.8.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug Win64|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -90,6 +91,9 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>vendor\glfw\glfw3.lib;vendor\yaml-cpp\lib\Debug\yaml-cpp.lib;vendor\imgui\bin\Debug\ImGui.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\vulkan-1.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\glslangd.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shadercd.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_utild.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_combinedd.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <CudaCompile>
+      <Include>src/</Include>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release Win64|x64'">
     <ClCompile>
@@ -114,6 +118,9 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>vendor\glfw\glfw3.lib;vendor\yaml-cpp\lib\Release\yaml-cpp.lib;vendor\imgui\bin\Release\ImGui.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\vulkan-1.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\glslang.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_util.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_combined.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <CudaCompile>
+      <Include>src/</Include>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Production Win64|x64'">
     <ClCompile>
@@ -136,6 +143,9 @@
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>vendor\glfw\glfw3.lib;vendor\yaml-cpp\lib\Production\yaml-cpp.lib;vendor\imgui\bin\Production\ImGui.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\vulkan-1.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\glslang.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_util.lib;E:\dev\VulkanSDK\1.3.224.1\Lib\shaderc_combined.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <CudaCompile>
+      <Include>src/</Include>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src\app\AdvancedRenderer\AdvancedRenderer.h" />
@@ -149,10 +159,16 @@
     <ClInclude Include="src\app\Dataset.h" />
     <ClInclude Include="src\app\DiskRenderer\DiskRenderPass.h" />
     <ClInclude Include="src\app\DiskRenderer\DiskRenderer.h" />
+    <ClInclude Include="src\app\ExternalImage.h" />
     <ClInclude Include="src\app\Kernel.h" />
     <ClInclude Include="src\app\StackArray.h" />
     <ClInclude Include="src\app\ThreadPool.h" />
     <ClInclude Include="src\app\Utils.h" />
+    <ClInclude Include="src\app\VisualizationSettings.h" />
+    <ClInclude Include="src\app\WindowsSecurityAttributes.h" />
+    <ClInclude Include="src\cuda\CudaHelpers.cuh" />
+    <ClInclude Include="src\cuda\CudaContext.cuh" />
+    <ClInclude Include="src\cuda\RayMarcher.cuh" />
     <ClInclude Include="src\engine\Application.h" />
     <ClInclude Include="src\engine\Engine.h" />
     <ClInclude Include="src\engine\assets\AssetManager.h" />
@@ -196,9 +212,11 @@
     <ClCompile Include="src\app\Dataset.cpp" />
     <ClCompile Include="src\app\DiskRenderer\DiskRenderPass.cpp" />
     <ClCompile Include="src\app\DiskRenderer\DiskRenderer.cpp" />
+    <ClCompile Include="src\app\ExternalImage.cpp" />
     <ClCompile Include="src\app\Kernel.cpp" />
     <ClCompile Include="src\app\ThreadPool.cpp" />
     <ClCompile Include="src\app\Utils.cpp" />
+    <ClCompile Include="src\app\WindowsSecurityAttributes.cpp" />
     <ClCompile Include="src\engine\Application.cpp" />
     <ClCompile Include="src\engine\assets\AssetManager.cpp" />
     <ClCompile Include="src\engine\assets\AssetPath.cpp" />
@@ -240,7 +258,12 @@
       <Project>{30E0C207-1CAE-B60D-0542-2734F1AE9272}</Project>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="src\cuda\CudaContext.cu" />
+    <CudaCompile Include="src\cuda\RayMarcher.cu" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 11.8.targets" />
   </ImportGroup>
 </Project>

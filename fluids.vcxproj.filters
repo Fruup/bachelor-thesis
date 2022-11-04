@@ -186,6 +186,12 @@
     <ClInclude Include="vendor\imgui\backends\imgui_impl_vulkan.h">
       <Filter>vendor\imgui\backends</Filter>
     </ClInclude>
+    <ClInclude Include="src\cuda\RayMarcher.cuh" />
+    <ClInclude Include="src\cuda\CudaContext.cuh" />
+    <ClInclude Include="src\cuda\CudaHelpers.cuh" />
+    <ClInclude Include="src\app\ExternalImage.h" />
+    <ClInclude Include="src\app\WindowsSecurityAttributes.h" />
+    <ClInclude Include="src\app\VisualizationSettings.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\app\AdvancedRenderer\AdvancedRenderer.cpp">
@@ -314,5 +320,11 @@
     <ClCompile Include="vendor\imgui\backends\imgui_impl_vulkan.cpp">
       <Filter>vendor\imgui\backends</Filter>
     </ClCompile>
+    <ClCompile Include="src\app\ExternalImage.cpp" />
+    <ClCompile Include="src\app\WindowsSecurityAttributes.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="src\cuda\RayMarcher.cu" />
+    <CudaCompile Include="src\cuda\CudaContext.cu" />
   </ItemGroup>
 </Project>

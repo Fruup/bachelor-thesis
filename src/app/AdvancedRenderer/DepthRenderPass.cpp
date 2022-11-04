@@ -53,7 +53,7 @@ void DepthRenderPass::Begin()
 	depthAttachment
 		.setClearValue(vk::ClearDepthStencilValue(1.0f))
 		.setImageLayout(vk::ImageLayout::eDepthAttachmentOptimal)
-		.setImageView(Renderer.DepthBuffer.GPU.ImageView)
+		.setImageView(Renderer.DepthBuffer.m_ImageView)
 		.setLoadOp(vk::AttachmentLoadOp::eClear)
 		.setStoreOp(vk::AttachmentStoreOp::eStore);
 
@@ -183,7 +183,7 @@ void DepthRenderPass::CreatePipeline()
 	// rendering info
 	vk::PipelineRenderingCreateInfo renderingPipelineCreateInfo;
 	renderingPipelineCreateInfo
-		.setDepthAttachmentFormat(Renderer.DepthBuffer.Format);
+		.setDepthAttachmentFormat(Renderer.DepthBuffer.m_Format);
 
 	// pipeline
 	vk::GraphicsPipelineCreateInfo pipelineCreateInfo;

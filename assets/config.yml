@@ -11,10 +11,10 @@ display:
 # dataset: "emitter"
 # dataset: "deformables"
 # dataset: "motor"
-# dataset: "simple"
+dataset: "simple"
 # dataset: "doubledambreak2"
-dataset: "dambreak"
+# dataset: "dambreak"
 
-# datasetFrameCount: 20
+datasetFrameCount: 5
 particleRadius: 0.1
 particleRadiusMultiplier: 2.0

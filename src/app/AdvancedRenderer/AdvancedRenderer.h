@@ -11,7 +11,9 @@
 #include "GaussRenderPass.h"
 #include "ShowImageRenderPass.h"
 #include "CoordinateSystemRenderPass.h"
-#include "RayMarcher.h"
+
+#include "cuda/RayMarcher.cuh"
+#include "app/ExternalImage.h"
 
 class Event;
 
@@ -45,16 +47,21 @@ private:
 	void DrawDepthPass();
 	void DrawFullscreenQuad();
 
+	void CreateSemaphores();
+
 public:
 	DepthRenderPass DepthRenderPass;
-	GaussRenderPass GaussRenderPass;
+	//GaussRenderPass GaussRenderPass;
 	CompositionRenderPass CompositionRenderPass;
 	ShowImageRenderPass ShowImageRenderPass;
 	CoordinateSystemRenderPass CoordinateSystemRenderPass;
 
-	BilateralBuffer DepthBuffer, SmoothedDepthBuffer;
-	BilateralBuffer PositionsBuffer;
-	BilateralBuffer NormalsBuffer;
+	//BilateralBuffer DepthBuffer, SmoothedDepthBuffer;
+	BilateralBuffer SmoothedDepthBuffer;
+
+	ExternalImage DepthBuffer;
+	ExternalImage PositionsBuffer;
+	ExternalImage NormalsBuffer;
 
 	VertexBuffer VertexBuffer;
 
@@ -65,9 +72,8 @@ public:
 	Camera3D Camera;
 	CameraController3D CameraController;
 
-	RayMarcher m_RayMarcher;
+	CudaRayMarcher m_RayMarcher;
 
-	glm::vec4* m_Positions;
-	glm::vec4* m_Normals;
-	float* m_Depth;
+	vk::Semaphore m_SemaphoreVK;
+	vk::Semaphore m_SemaphoreCU;
 };
