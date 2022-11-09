@@ -113,7 +113,7 @@ void main()
 	// Color = vec4(normal, 1);
 	// return;
 
-	const vec3 refracted = refract(normalize(viewRay()), normal, 1.1);
+	const vec3 refracted = refract(normalize(viewRay()), normal, 1.333);
 	const vec4 floorColor = sampleFloor(world, refracted);
 
 	float f = -dot(Uniforms.CameraDirection, normal);
